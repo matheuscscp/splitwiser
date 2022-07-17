@@ -1,7 +1,7 @@
 #!/bin/bash
 
-git --no-pager diff --exit-code > /dev/null 2>&1
-if [ $? -eq 0 ]; then
+git_status=$(git status --porcelain=v1 2>/dev/null | wc -l)
+if [ $git_status -eq 0 ]; then
     ./do-deploy.sh > deploy-logs.txt 2>&1 &
 else
     echo "Commit git changes first."
