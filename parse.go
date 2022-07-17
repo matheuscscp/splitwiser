@@ -21,9 +21,9 @@ var (
 	pricesRegex = regexp.MustCompile(`^(\d+)\.(\d{1,2})$`)
 )
 
-func parseReceiptTokens(s string) (tokens []string, priceIdxs []int) {
+func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
 	priceIdxs = append(priceIdxs, -1)
-	for _, tok := range spacesRegex.Split(s, -1) {
+	for _, tok := range spacesRegex.Split(receipt, -1) {
 		if tok == "" {
 			continue
 		}
@@ -49,8 +49,8 @@ func parsePriceToCents(tok string) priceInCents {
 	return priceInCents(cents + 100*euros)
 }
 
-func parseReceipt(s string) (receiptItems []*receiptItem) {
-	tokens, priceIdxs := parseReceiptTokens(s)
+func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
+	tokens, priceIdxs := parseLidlReceiptTokens(receipt)
 	for i := 1; i < len(priceIdxs)-1; i++ {
 		prevPriceIdx := priceIdxs[i-1]
 		priceIdx := priceIdxs[i]
@@ -67,6 +67,27 @@ func parseReceipt(s string) (receiptItems []*receiptItem) {
 		})
 	}
 	return
+}
+
+func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*receiptItem) {
+	n := len(receiptLines) / 2
+	receiptItems = make([]*receiptItem, n)
+	for i := 0; i < n; i++ {
+		receiptItems[i] = &receiptItem{
+			mainLine:     receiptLines[i],
+			priceInCents: parsePriceToCents(receiptLines[i+n]),
+		}
+	}
+	return
+}
+
+func parseReceipt(receipt string) (receiptItems []*receiptItem) {
+	lines := strings.Split(receipt, "\n")
+	if len(lines) == 1 {
+		return parseLidlReceipt(receipt)
+	} else {
+		return parseItemListFollowedByPriceList(lines)
+	}
 }
 
 func (p priceInCents) Format() string {

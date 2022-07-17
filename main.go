@@ -185,6 +185,8 @@ Please choose the owner:
 			if len(receiptItems) > 0 {
 				printNextReceiptItem()
 				botState = botStateParsingReceiptInteractively
+			} else {
+				bot.Send("Could not parse the receipt.")
 			}
 		case botStateParsingReceiptInteractively:
 			owner := receiptItemOwner(msg)
