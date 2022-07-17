@@ -9,6 +9,7 @@ import (
 	"os"
 	"strconv"
 	"strings"
+	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/sirupsen/logrus"
@@ -113,12 +114,18 @@ Please choose the owner:
 
 	updatesConfig := tgbotapi.NewUpdate(0 /*offset*/)
 	updatesConfig.Timeout = 60
+	t0 := time.Now()
 	for update := range bot.GetUpdatesChan(updatesConfig) {
 		if update.Message == nil || update.Message.Chat.ID != chatID {
 			continue
 		}
 		msg := update.Message.Text
 		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
+
+		if msg == "/uptime" {
+			bot.Send("I'm up for %s.", time.Since(t0))
+			continue
+		}
 
 		if botState != botStateIdle && msg == "/abort" {
 			resetState()
