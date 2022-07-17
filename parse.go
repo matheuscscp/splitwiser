@@ -70,10 +70,11 @@ func parseReceipt(s string) (receiptItems []*receiptItem) {
 }
 
 func (p priceInCents) Format() string {
+	s := fmt.Sprintf("%d.", p/100)
 	mod := p % 100
-	s := fmt.Sprintf("%d.%d", p/100, mod)
 	if mod < 10 {
 		s += "0"
 	}
+	s += fmt.Sprintf("%d", mod)
 	return s
 }
