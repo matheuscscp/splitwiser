@@ -18,7 +18,13 @@ type (
 	}
 )
 
-func createExpense(bot *botAPI, groupID int64, description string, cost priceInCents, user0, user1 *userShare) {
+func createExpense(
+	bot *botAPI,
+	groupID int64,
+	store, description string,
+	cost priceInCents,
+	user0, user1 *userShare,
+) {
 	if cost < 0 {
 		bot.Send("Skipping expense with negative cost.")
 		return
@@ -33,7 +39,7 @@ func createExpense(bot *botAPI, groupID int64, description string, cost priceInC
 	err := json.NewEncoder(&expense).Encode(map[string]interface{}{
 		"currency_code":        "EUR",
 		"category_id":          12, // Groceries
-		"description":          fmt.Sprintf("groceries %s", description),
+		"description":          fmt.Sprintf("%s %s", store, description),
 		"cost":                 cost.Format(),
 		"group_id":             groupID,
 		"users__0__user_id":    user0.userID,

@@ -25,6 +25,7 @@ const (
 	botStateIdle botState = iota
 	botStateParsingReceiptInteractively
 	botStateWaitingForPayer
+	botStateWaitingForStore
 
 	ana            receiptItemOwner = "a"
 	matheus        receiptItemOwner = "m"
@@ -71,11 +72,15 @@ func main() {
 	botState := botStateIdle
 	var receiptItems []*receiptItem
 	totalInCents := make(map[receiptItemOwner]priceInCents)
+	var payer receiptItemOwner
+	var store string
 
 	resetState := func() {
 		botState = botStateIdle
 		receiptItems = nil
 		totalInCents = make(map[receiptItemOwner]priceInCents)
+		payer = ""
+		store = ""
 	}
 
 	printNextReceiptItem := func() {
@@ -98,6 +103,58 @@ Please choose the owner:
 			shared,
 			delay,
 			notReceiptItem,
+		)
+	}
+
+	updateSplitwise := func() {
+		cost := totalInCents[ana]
+		payerID, borrowerID := matheusID, anaID
+		description := "vegan"
+		if payer == ana {
+			cost = totalInCents[matheus]
+			payerID, borrowerID = anaID, matheusID
+			description = "non-vegan"
+		}
+		bot.Send("Creating non-shared expense...")
+		createExpense(
+			bot,
+			groupID,
+			store,
+			description,
+			cost,
+			&userShare{
+				userID: payerID,
+				paid:   cost,
+				owed:   zeroCents,
+			},
+			&userShare{
+				userID: borrowerID,
+				paid:   zeroCents,
+				owed:   cost,
+			},
+		)
+
+		costShared := totalInCents[shared]
+		halfCostSharedRoundedDown := costShared / 2
+		halfCostSharedRoundedUp := (costShared + 1) / 2
+		description = "shared"
+		bot.Send("Creating shared expense...")
+		createExpense(
+			bot,
+			groupID,
+			store,
+			description,
+			costShared,
+			&userShare{
+				userID: payerID,
+				paid:   costShared,
+				owed:   halfCostSharedRoundedDown,
+			},
+			&userShare{
+				userID: borrowerID,
+				paid:   zeroCents,
+				owed:   halfCostSharedRoundedUp,
+			},
 		)
 	}
 
@@ -168,58 +225,19 @@ Please choose the payer:
 				}
 			}
 		case botStateWaitingForPayer:
-			payer := receiptItemOwner(msg)
+			payer = receiptItemOwner(msg)
 			if payer != ana && payer != matheus {
 				bot.Send("Invalid choice. Choose one of {%s, %s}.", ana, matheus)
 			} else {
-				cost := totalInCents[ana]
-				payerID, borrowerID := matheusID, anaID
-				description := "vegan"
-				if payer == ana {
-					cost = totalInCents[matheus]
-					payerID, borrowerID = anaID, matheusID
-					description = "non-vegan"
-				}
-				bot.Send("Creating non-shared expense...")
-				createExpense(
-					bot,
-					groupID,
-					description,
-					cost,
-					&userShare{
-						userID: payerID,
-						paid:   cost,
-						owed:   zeroCents,
-					},
-					&userShare{
-						userID: borrowerID,
-						paid:   zeroCents,
-						owed:   cost,
-					},
-				)
-
-				costShared := totalInCents[shared]
-				halfCostSharedRoundedDown := costShared / 2
-				halfCostSharedRoundedUp := (costShared + 1) / 2
-				description = "shared"
-				bot.Send("Creating shared expense...")
-				createExpense(
-					bot,
-					groupID,
-					description,
-					costShared,
-					&userShare{
-						userID: payerID,
-						paid:   costShared,
-						owed:   halfCostSharedRoundedDown,
-					},
-					&userShare{
-						userID: borrowerID,
-						paid:   zeroCents,
-						owed:   halfCostSharedRoundedUp,
-					},
-				)
-
+				bot.Send("Please type in the name of the store.")
+				botState = botStateWaitingForStore
+			}
+		case botStateWaitingForStore:
+			store = msg
+			if len(store) == 0 {
+				bot.Send("Store name cannot be empty.")
+			} else {
+				updateSplitwise()
 				resetState()
 			}
 		default:
