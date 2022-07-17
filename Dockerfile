@@ -3,6 +3,7 @@ FROM golang:1.18 AS build
 WORKDIR /workspace
 ADD go.mod .
 ADD go.sum .
+RUN go mod download
 ADD *.go ./
 RUN go build
 
