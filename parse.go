@@ -18,7 +18,7 @@ type (
 
 var (
 	spacesRegex = regexp.MustCompile(`\s+`)
-	pricesRegex = regexp.MustCompile(`^(\d+)\.(\d{1,2})$`)
+	pricesRegex = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
 )
 
 func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
@@ -38,12 +38,12 @@ func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
 
 func parsePriceToCents(tok string) priceInCents {
 	m := pricesRegex.FindStringSubmatch(tok)
-	euros, _ := strconv.ParseInt(m[1], 10, 64)
-	if len(m[1]) == 0 {
+	euros, _ := strconv.ParseInt(m[2], 10, 64)
+	if len(m[2]) == 0 {
 		euros = 0
 	}
-	cents, _ := strconv.ParseInt(m[2], 10, 64)
-	if len(m[2]) == 1 {
+	cents, _ := strconv.ParseInt(m[3], 10, 64)
+	if len(m[3]) == 1 {
 		cents *= 10
 	}
 	return priceInCents(cents + 100*euros)
