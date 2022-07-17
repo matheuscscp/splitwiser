@@ -17,8 +17,9 @@ type (
 )
 
 var (
-	spacesRegex = regexp.MustCompile(`\s+`)
-	pricesRegex = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
+	spacesRegex   = regexp.MustCompile(`\s+`)
+	pricesRegex   = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
+	asteriskRegex = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
 func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
@@ -70,6 +71,7 @@ func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
 }
 
 func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*receiptItem) {
+	receiptLines = removeSingleAsterisks(receiptLines)
 	n := len(receiptLines) / 2
 	receiptItems = make([]*receiptItem, n)
 	for i := 0; i < n; i++ {
@@ -79,6 +81,16 @@ func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*re
 		}
 	}
 	return
+}
+
+func removeSingleAsterisks(receiptLines []string) []string {
+	var ret []string
+	for _, s := range receiptLines {
+		if !asteriskRegex.MatchString(s) {
+			ret = append(ret, s)
+		}
+	}
+	return ret
 }
 
 func parseReceipt(receipt string) (receiptItems []*receiptItem) {
