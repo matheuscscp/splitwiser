@@ -7,6 +7,7 @@ import (
 	"time"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	"github.com/matheuscscp/splitwiser/models"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,7 +34,7 @@ const (
 	delay          receiptItemOwner = "d"
 	notReceiptItem receiptItemOwner = "n"
 
-	zeroCents = priceInCents(0)
+	zeroCents = models.PriceInCents(0)
 )
 
 func main() {
@@ -70,15 +71,15 @@ func main() {
 
 	// bot state
 	botState := botStateIdle
-	var receiptItems []*receiptItem
-	totalInCents := make(map[receiptItemOwner]priceInCents)
+	var receiptItems []*models.ReceiptItem
+	totalInCents := make(map[receiptItemOwner]models.PriceInCents)
 	var payer receiptItemOwner
 	var store string
 
 	resetState := func() {
 		botState = botStateIdle
 		receiptItems = nil
-		totalInCents = make(map[receiptItemOwner]priceInCents)
+		totalInCents = make(map[receiptItemOwner]models.PriceInCents)
 		payer = ""
 		store = ""
 	}
@@ -95,9 +96,9 @@ Please choose the owner:
 %s - Shared
 %s - Put item in the end of the list
 %s - Not a receipt item`,
-			item.mainLine,
-			item.priceInCents.Format(),
-			item.nextLine,
+			item.MainLine,
+			item.PriceInCents.Format(),
+			item.NextLine,
 			ana,
 			matheus,
 			shared,
@@ -181,7 +182,7 @@ Please choose the owner:
 
 		switch botState {
 		case botStateIdle:
-			receiptItems = parseReceipt(msg)
+			receiptItems = models.ParseReceipt(msg)
 			if len(receiptItems) > 0 {
 				printNextReceiptItem()
 				botState = botStateParsingReceiptInteractively
@@ -201,7 +202,7 @@ Please choose the owner:
 				if item := receiptItems[0]; owner == delay {
 					receiptItems = append(receiptItems, item)
 				} else if owner != notReceiptItem {
-					totalInCents[owner] += item.priceInCents
+					totalInCents[owner] += item.PriceInCents
 				}
 
 				// pop item

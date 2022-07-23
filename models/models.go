@@ -1,4 +1,4 @@
-package main
+package models
 
 import (
 	"fmt"
@@ -8,11 +8,14 @@ import (
 )
 
 type (
-	priceInCents int
-	receiptItem  struct {
-		mainLine     string
-		nextLine     string
-		priceInCents priceInCents
+	// PriceInCents ...
+	PriceInCents int
+
+	// ReceiptItem ...
+	ReceiptItem struct {
+		MainLine     string
+		NextLine     string
+		PriceInCents PriceInCents
 	}
 )
 
@@ -22,7 +25,7 @@ var (
 	tescoSingleAsteriskLineRegex = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
-func parsePriceToCents(tok string) priceInCents {
+func parsePriceToCents(tok string) PriceInCents {
 	m := priceTokenRegex.FindStringSubmatch(tok)
 	euros, _ := strconv.ParseInt(m[2], 10, 64)
 	if len(m[2]) == 0 {
@@ -32,10 +35,11 @@ func parsePriceToCents(tok string) priceInCents {
 	if len(m[3]) == 1 {
 		cents *= 10
 	}
-	return priceInCents(cents + 100*euros)
+	return PriceInCents(cents + 100*euros)
 }
 
-func (p priceInCents) Format() string {
+// Format ...
+func (p PriceInCents) Format() string {
 	s := fmt.Sprintf("%d.", p/100)
 	mod := p % 100
 	if mod < 10 {
@@ -45,7 +49,8 @@ func (p priceInCents) Format() string {
 	return s
 }
 
-func parseReceipt(receipt string) (receiptItems []*receiptItem) {
+// ParseReceipt ...
+func ParseReceipt(receipt string) (receiptItems []*ReceiptItem) {
 	lines := strings.Split(receipt, "\n")
 	if len(lines) == 1 {
 		return parseLidlReceipt(receipt)
@@ -54,7 +59,7 @@ func parseReceipt(receipt string) (receiptItems []*receiptItem) {
 	}
 }
 
-func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
+func parseLidlReceipt(receipt string) (receiptItems []*ReceiptItem) {
 	tokens, priceIdxs := parseLidlReceiptTokens(receipt)
 	for i := 1; i < len(priceIdxs)-1; i++ {
 		prevPriceIdx := priceIdxs[i-1]
@@ -65,10 +70,10 @@ func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
 		if nextPriceIdx < len(tokens) {
 			nextLineToks = append(nextLineToks, tokens[nextPriceIdx])
 		}
-		receiptItems = append(receiptItems, &receiptItem{
-			mainLine:     strings.Join(mainLineToks, " "),
-			nextLine:     strings.Join(nextLineToks, " "),
-			priceInCents: parsePriceToCents(tokens[priceIdx]),
+		receiptItems = append(receiptItems, &ReceiptItem{
+			MainLine:     strings.Join(mainLineToks, " "),
+			NextLine:     strings.Join(nextLineToks, " "),
+			PriceInCents: parsePriceToCents(tokens[priceIdx]),
 		})
 	}
 	return
@@ -89,14 +94,14 @@ func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
 	return
 }
 
-func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*receiptItem) {
+func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*ReceiptItem) {
 	receiptLines = removeTescoSingleAsteriskLines(receiptLines)
 	n := len(receiptLines) / 2
-	receiptItems = make([]*receiptItem, n)
+	receiptItems = make([]*ReceiptItem, n)
 	for i := 0; i < n; i++ {
-		receiptItems[i] = &receiptItem{
-			mainLine:     receiptLines[i],
-			priceInCents: parsePriceToCents(receiptLines[i+n]),
+		receiptItems[i] = &ReceiptItem{
+			MainLine:     receiptLines[i],
+			PriceInCents: parsePriceToCents(receiptLines[i+n]),
 		}
 	}
 	return

@@ -8,13 +8,15 @@ import (
 	"net/http"
 	"os"
 	"strings"
+
+	"github.com/matheuscscp/splitwiser/models"
 )
 
 type (
 	userShare struct {
 		userID int64
-		paid   priceInCents
-		owed   priceInCents
+		paid   models.PriceInCents
+		owed   models.PriceInCents
 	}
 )
 
@@ -22,7 +24,7 @@ func createExpense(
 	bot *botAPI,
 	groupID int64,
 	store, description string,
-	cost priceInCents,
+	cost models.PriceInCents,
 	user0, user1 *userShare,
 ) {
 	if cost < 0 {
