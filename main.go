@@ -8,6 +8,7 @@ import (
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
 	"github.com/matheuscscp/splitwiser/models"
+	"github.com/matheuscscp/splitwiser/splitwise"
 	"github.com/sirupsen/logrus"
 )
 
@@ -117,46 +118,46 @@ Please choose the owner:
 			description = "non-vegan"
 		}
 		bot.Send("Creating non-shared expense...")
-		createExpense(
-			bot,
+		expenseMsg := splitwise.CreateExpense(
 			groupID,
 			store,
 			description,
 			cost,
-			&userShare{
-				userID: payerID,
-				paid:   cost,
-				owed:   zeroCents,
+			&splitwise.UserShare{
+				UserID: payerID,
+				Paid:   cost,
+				Owed:   zeroCents,
 			},
-			&userShare{
-				userID: borrowerID,
-				paid:   zeroCents,
-				owed:   cost,
+			&splitwise.UserShare{
+				UserID: borrowerID,
+				Paid:   zeroCents,
+				Owed:   cost,
 			},
 		)
+		bot.Send(expenseMsg)
 
 		costShared := totalInCents[shared]
 		halfCostSharedRoundedDown := costShared / 2
 		halfCostSharedRoundedUp := (costShared + 1) / 2
 		description = "shared"
 		bot.Send("Creating shared expense...")
-		createExpense(
-			bot,
+		expenseMsg = splitwise.CreateExpense(
 			groupID,
 			store,
 			description,
 			costShared,
-			&userShare{
-				userID: payerID,
-				paid:   costShared,
-				owed:   halfCostSharedRoundedDown,
+			&splitwise.UserShare{
+				UserID: payerID,
+				Paid:   costShared,
+				Owed:   halfCostSharedRoundedDown,
 			},
-			&userShare{
-				userID: borrowerID,
-				paid:   zeroCents,
-				owed:   halfCostSharedRoundedUp,
+			&splitwise.UserShare{
+				UserID: borrowerID,
+				Paid:   zeroCents,
+				Owed:   halfCostSharedRoundedUp,
 			},
 		)
+		bot.Send(expenseMsg)
 	}
 
 	updatesConfig := tgbotapi.NewUpdate(0 /*offset*/)
