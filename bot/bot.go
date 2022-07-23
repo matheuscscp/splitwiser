@@ -16,6 +16,7 @@ type (
 		*tgbotapi.BotAPI
 
 		chatID int64
+		closed bool
 	}
 
 	botState         int
@@ -35,6 +36,9 @@ const (
 	notReceiptItem receiptItemOwner = "n"
 
 	zeroCents = models.PriceInCents(0)
+
+	botTimeout              = 10 * time.Minute
+	botTimeoutWatchInterval = 10 * time.Second
 )
 
 func (b *botAPI) send(format string, args ...interface{}) {
@@ -47,7 +51,15 @@ func (b *botAPI) send(format string, args ...interface{}) {
 	}
 }
 
-// Run starts the bot and returns when the bot finishes processing all receipts.
+func (b *botAPI) close() {
+	if b.closed {
+		return
+	}
+	b.closed = true
+	b.StopReceivingUpdates()
+}
+
+// Run starts the bot and returns when the bot has finished processing all receipts.
 func Run(
 	telegramToken string, telegramChatID int64,
 	splitwiseToken string, splitwiseGroupID, splitwiseAnaID, splitwiseMatheusID int64,
@@ -62,6 +74,26 @@ func Run(
 		BotAPI: telegramClient,
 		chatID: telegramChatID,
 	}
+
+	// timeout thread
+	lastActivity := time.Now()
+	timeoutThreadShutdownChannel := make(chan struct{})
+	go func() {
+		timer := time.NewTimer(botTimeoutWatchInterval)
+		for {
+			select {
+			case <-timer.C:
+				if botTimeout <= time.Since(lastActivity) {
+					bot.close()
+					return
+				}
+				timer.Reset(botTimeoutWatchInterval)
+			case <-timeoutThreadShutdownChannel:
+				timer.Stop()
+				return
+			}
+		}
+	}()
 
 	// bot state
 	botState := botStateIdle
@@ -159,20 +191,28 @@ Please choose the owner:
 	updatesConfig.Timeout = 60
 	t0 := time.Now()
 	for update := range bot.GetUpdatesChan(updatesConfig) {
-		if update.Message == nil || update.Message.Chat.ID != telegramChatID {
+		if bot.closed || update.Message == nil || update.Message.Chat.ID != telegramChatID {
 			continue
 		}
 		msg := update.Message.Text
 		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
+		lastActivity = time.Now()
+
+		if botState != botStateIdle && msg == "/abort" {
+			resetState()
+			bot.send("Okay, start a new receipt then.")
+			continue
+		}
 
 		if msg == "/uptime" {
 			bot.send("I'm up for %s.", time.Since(t0))
 			continue
 		}
 
-		if botState != botStateIdle && msg == "/abort" {
-			resetState()
-			bot.send("Cya.")
+		if msg == "/finish" {
+			bot.send("Okay, I will shutdown.")
+			close(timeoutThreadShutdownChannel)
+			bot.close()
 			continue
 		}
 
@@ -243,4 +283,6 @@ Please choose the payer:
 			logrus.Errorf("invalid botState: %d", botState)
 		}
 	}
+
+	bot.send("Cya.")
 }
