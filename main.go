@@ -3,10 +3,18 @@ package main
 import (
 	"os"
 	"strconv"
+	"time"
 
 	"github.com/matheuscscp/splitwiser/bot"
 	"github.com/sirupsen/logrus"
 )
+
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		TimestampFormat: time.RFC3339,
+		FullTimestamp:   true,
+	})
+}
 
 func main() {
 	// telegram inputs

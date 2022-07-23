@@ -68,7 +68,7 @@ func Run(
 	if err != nil {
 		logrus.Fatalf("error creating Telegram Bot API client: %v", err)
 	}
-	logrus.Infof("Authorized on Telegram bot account %s", telegramClient.Self.UserName)
+	logrus.Infof("Authenticated on Telegram bot account %s", telegramClient.Self.UserName)
 
 	bot := &botAPI{
 		BotAPI: telegramClient,
