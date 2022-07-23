@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"os"
 	"strings"
 
 	"github.com/matheuscscp/splitwiser/models"
@@ -24,6 +23,7 @@ type (
 // CreateExpense creates an expense on the Splitwise API and
 // returns a message for the bot to send back as the result.
 func CreateExpense(
+	apiToken string,
 	groupID int64,
 	store, description string,
 	cost models.PriceInCents,
@@ -62,7 +62,7 @@ func CreateExpense(
 		return fmt.Sprintf("Error creating request for Splitwise API: %v", err)
 	}
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", os.Getenv("SPLITWISE_TOKEN")))
+	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", apiToken))
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
 		return fmt.Sprintf("Error POSTing expense to Splitwise API: %v", err)
