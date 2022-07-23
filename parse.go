@@ -17,28 +17,13 @@ type (
 )
 
 var (
-	spacesRegex   = regexp.MustCompile(`\s+`)
-	pricesRegex   = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
-	asteriskRegex = regexp.MustCompile(`^\s*\*\s*$`)
+	spacesRegex                  = regexp.MustCompile(`\s+`)
+	priceTokenRegex              = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
+	tescoSingleAsteriskLineRegex = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
-func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
-	priceIdxs = append(priceIdxs, -1)
-	for _, tok := range spacesRegex.Split(receipt, -1) {
-		if tok == "" {
-			continue
-		}
-		if pricesRegex.MatchString(tok) {
-			priceIdxs = append(priceIdxs, len(tokens))
-		}
-		tokens = append(tokens, tok)
-	}
-	priceIdxs = append(priceIdxs, len(tokens))
-	return
-}
-
 func parsePriceToCents(tok string) priceInCents {
-	m := pricesRegex.FindStringSubmatch(tok)
+	m := priceTokenRegex.FindStringSubmatch(tok)
 	euros, _ := strconv.ParseInt(m[2], 10, 64)
 	if len(m[2]) == 0 {
 		euros = 0
@@ -48,6 +33,25 @@ func parsePriceToCents(tok string) priceInCents {
 		cents *= 10
 	}
 	return priceInCents(cents + 100*euros)
+}
+
+func (p priceInCents) Format() string {
+	s := fmt.Sprintf("%d.", p/100)
+	mod := p % 100
+	if mod < 10 {
+		s += "0"
+	}
+	s += fmt.Sprintf("%d", mod)
+	return s
+}
+
+func parseReceipt(receipt string) (receiptItems []*receiptItem) {
+	lines := strings.Split(receipt, "\n")
+	if len(lines) == 1 {
+		return parseLidlReceipt(receipt)
+	} else {
+		return parseItemListFollowedByPriceList(lines)
+	}
 }
 
 func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
@@ -70,8 +74,23 @@ func parseLidlReceipt(receipt string) (receiptItems []*receiptItem) {
 	return
 }
 
+func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
+	priceIdxs = append(priceIdxs, -1)
+	for _, tok := range spacesRegex.Split(receipt, -1) {
+		if tok == "" {
+			continue
+		}
+		if priceTokenRegex.MatchString(tok) {
+			priceIdxs = append(priceIdxs, len(tokens))
+		}
+		tokens = append(tokens, tok)
+	}
+	priceIdxs = append(priceIdxs, len(tokens))
+	return
+}
+
 func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*receiptItem) {
-	receiptLines = removeSingleAsterisks(receiptLines)
+	receiptLines = removeTescoSingleAsteriskLines(receiptLines)
 	n := len(receiptLines) / 2
 	receiptItems = make([]*receiptItem, n)
 	for i := 0; i < n; i++ {
@@ -83,31 +102,12 @@ func parseItemListFollowedByPriceList(receiptLines []string) (receiptItems []*re
 	return
 }
 
-func removeSingleAsterisks(receiptLines []string) []string {
+func removeTescoSingleAsteriskLines(receiptLines []string) []string {
 	var ret []string
 	for _, s := range receiptLines {
-		if !asteriskRegex.MatchString(s) {
+		if !tescoSingleAsteriskLineRegex.MatchString(s) {
 			ret = append(ret, s)
 		}
 	}
 	return ret
-}
-
-func parseReceipt(receipt string) (receiptItems []*receiptItem) {
-	lines := strings.Split(receipt, "\n")
-	if len(lines) == 1 {
-		return parseLidlReceipt(receipt)
-	} else {
-		return parseItemListFollowedByPriceList(lines)
-	}
-}
-
-func (p priceInCents) Format() string {
-	s := fmt.Sprintf("%d.", p/100)
-	mod := p % 100
-	if mod < 10 {
-		s += "0"
-	}
-	s += fmt.Sprintf("%d", mod)
-	return s
 }
