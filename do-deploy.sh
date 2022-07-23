@@ -2,22 +2,28 @@
 
 set -e
 
-cur_tag=$(gcloud container images list-tags us-central1-docker.pkg.dev/splitwiser-356519/splitwiser/splitwiser --format=json | jq '.[0].tags[-1]' -r)
+# deploy StartBot
+gcloud functions deploy StartBot \
+    --runtime go116 \
+    --trigger-http \
+    --allow-unauthenticated \
+    --security-level secure-always \
+    --set-secrets 'TOKEN=start-bot-token:latest'
 
-echo "The current tag is $cur_tag."
+# create git tag for StartBot
+start_bot_version=$(gcloud functions describe StartBot --format json | jq .versionId -r)
+start_bot_git_tag="StartBot-v$start_bot_version"
+git tag $start_bot_git_tag
 
-cur_tag_number=$(echo $cur_tag | grep -oP '\d+')
-new_tag_number=$((cur_tag_number+1))
-new_tag="tag$new_tag_number"
+# deploy Bot
+gcloud functions deploy Bot \
+    --runtime go116 \
+    --trigger-topic start-bot \
+    --set-secrets '/etc/secrets/config/latest=bot-config:latest'
 
-echo "The new tag is $new_tag."
+# create git tag for Bot
+bot_version=$(gcloud functions describe Bot --format json | jq .versionId -r)
+bot_git_tag="Bot-v$bot_version"
+git tag $bot_git_tag
 
-new_tag_fqn="us-central1-docker.pkg.dev/splitwiser-356519/splitwiser/splitwiser:$new_tag"
-
-docker build . -t $new_tag_fqn
-docker push $new_tag_fqn
-
-gcloud compute instances update-container splitwiser --container-image=$new_tag_fqn
-
-git tag $new_tag
 git push --tags

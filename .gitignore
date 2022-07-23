@@ -1,4 +1,3 @@
-splitwiser
+cmd/dev/dev
 load-envs.sh
-start-bot.sh
 deploy-logs.txt

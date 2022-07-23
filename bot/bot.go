@@ -11,7 +11,29 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func init() {
+	logrus.SetFormatter(&logrus.TextFormatter{
+		TimestampFormat: time.RFC3339,
+		FullTimestamp:   true,
+	})
+}
+
 type (
+	// Config ...
+	Config struct {
+		Telegram struct {
+			Token  string `yaml:"token"`
+			ChatID int64  `yaml:"chatID"`
+		} `yaml:"telegram"`
+		Splitwise struct {
+			Token     string `yaml:"token"`
+			GroupID   int64  `yaml:"groupID"`
+			AnaID     int64  `yaml:"anaID"`
+			MatheusID int64  `yaml:"matheusID"`
+		} `yaml:"splitwise"`
+		PubSubMessageID string `yaml:"-"`
+	}
+
 	botAPI struct {
 		*tgbotapi.BotAPI
 
@@ -60,11 +82,8 @@ func (b *botAPI) close() {
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run(
-	telegramToken string, telegramChatID int64,
-	splitwiseToken string, splitwiseGroupID, splitwiseAnaID, splitwiseMatheusID int64,
-) {
-	telegramClient, err := tgbotapi.NewBotAPI(telegramToken)
+func Run(conf *Config) {
+	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
 	if err != nil {
 		logrus.Fatalf("error creating Telegram Bot API client: %v", err)
 	}
@@ -72,8 +91,9 @@ func Run(
 
 	bot := &botAPI{
 		BotAPI: telegramClient,
-		chatID: telegramChatID,
+		chatID: conf.Telegram.ChatID,
 	}
+	bot.send("Hi, I was started by message ID %s.", conf.PubSubMessageID)
 
 	// timeout thread
 	lastActivity := time.Now()
@@ -135,17 +155,17 @@ Please choose the owner:
 
 	updateSplitwise := func() {
 		cost := totalInCents[ana]
-		payerID, borrowerID := splitwiseMatheusID, splitwiseAnaID
+		payerID, borrowerID := conf.Splitwise.MatheusID, conf.Splitwise.AnaID
 		description := "vegan"
 		if payer == ana {
 			cost = totalInCents[matheus]
-			payerID, borrowerID = splitwiseAnaID, splitwiseMatheusID
+			payerID, borrowerID = conf.Splitwise.AnaID, conf.Splitwise.MatheusID
 			description = "non-vegan"
 		}
 		bot.send("Creating non-shared expense...")
 		expenseMsg := splitwise.CreateExpense(
-			splitwiseToken,
-			splitwiseGroupID,
+			conf.Splitwise.Token,
+			conf.Splitwise.GroupID,
 			store,
 			description,
 			cost,
@@ -168,8 +188,8 @@ Please choose the owner:
 		description = "shared"
 		bot.send("Creating shared expense...")
 		expenseMsg = splitwise.CreateExpense(
-			splitwiseToken,
-			splitwiseGroupID,
+			conf.Splitwise.Token,
+			conf.Splitwise.GroupID,
 			store,
 			description,
 			costShared,
@@ -191,7 +211,7 @@ Please choose the owner:
 	updatesConfig.Timeout = 60
 	t0 := time.Now()
 	for update := range bot.GetUpdatesChan(updatesConfig) {
-		if bot.closed || update.Message == nil || update.Message.Chat.ID != telegramChatID {
+		if bot.closed || update.Message == nil || update.Message.Chat.ID != conf.Telegram.ChatID {
 			continue
 		}
 		msg := update.Message.Text
