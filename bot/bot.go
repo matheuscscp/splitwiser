@@ -200,7 +200,7 @@ Please choose the owner:
 
 		if botState != botStateIdle && msg == "/abort" {
 			resetState()
-			bot.send("Okay, start a new receipt then.")
+			bot.send("Okay, then start a new receipt.")
 			continue
 		}
 
