@@ -74,9 +74,6 @@ func (b *botAPI) send(format string, args ...interface{}) {
 }
 
 func (b *botAPI) close() {
-	if b.closed {
-		return
-	}
 	b.closed = true
 	b.StopReceivingUpdates()
 }
@@ -98,19 +95,23 @@ func Run(conf *Config) {
 	bot.send("Hi, I was started with nonce '%s'.", conf.Nonce)
 
 	// timeout thread
-	timeoutThreadShutdownChannel := make(chan struct{})
+	shutdownChannel := make(chan struct{})
 	go func() {
+		defer bot.close()
 		timer := time.NewTimer(botTimeoutWatchInterval)
 		for {
 			select {
 			case <-timer.C:
 				if botTimeout <= time.Since(t0) {
-					bot.close()
+					bot.send("Timed out waiting for input. Shutting down.")
 					return
 				}
 				timer.Reset(botTimeoutWatchInterval)
-			case <-timeoutThreadShutdownChannel:
-				timer.Stop()
+			case <-shutdownChannel:
+				bot.send("Okay, I will shutdown.")
+				if !timer.Stop() {
+					<-timer.C
+				}
 				return
 			}
 		}
@@ -229,9 +230,7 @@ Please choose the owner:
 		}
 
 		if msg == "/finish" {
-			bot.send("Okay, I will shutdown.")
-			close(timeoutThreadShutdownChannel)
-			bot.close()
+			close(shutdownChannel)
 			continue
 		}
 
