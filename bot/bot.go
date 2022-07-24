@@ -243,7 +243,7 @@ Please choose the owner:
 				printNextReceiptItem()
 				botState = botStateParsingReceiptInteractively
 			} else {
-				bot.send("Could not parse the receipt.")
+				bot.send("Could not parse the receipt, try again.")
 			}
 		case botStateParsingReceiptInteractively:
 			owner := receiptItemOwner(msg)
