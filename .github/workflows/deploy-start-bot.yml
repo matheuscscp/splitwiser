@@ -21,6 +21,8 @@ jobs:
       with:
         name: StartBot
         runtime: go116
+        https_trigger_security_level: secure_always
+        secret_environment_variables: TOKEN=projects/splitwiser-356519/secrets/start-bot-token/versions/latest
 
     - uses: rickstaa/action-create-tag@v1
       with:

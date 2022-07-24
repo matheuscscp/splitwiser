@@ -21,6 +21,11 @@ jobs:
       with:
         name: Bot
         runtime: go116
+        event_trigger_type: google.pubsub.topic.publish
+        event_trigger_resource: start-bot
+        timeout: 540
+        secret_volumes: /etc/secrets/config/latest.yml=projects/splitwiser-356519/secrets/bot-config/versions/latest
+        env_vars: CONF_FILE=/etc/secrets/config/latest.yml
 
     - uses: rickstaa/action-create-tag@v1
       with:
