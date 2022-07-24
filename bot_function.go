@@ -16,7 +16,7 @@ type (
 	// https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
 	PubSubMessage struct {
 		Data      []byte `json:"data"`
-		MessageID string `json:"messageId"`
+		MessageID []byte `json:"messageId"`
 	}
 )
 
@@ -39,7 +39,7 @@ func Bot(ctx context.Context, m PubSubMessage) error {
 	if err := yaml.Unmarshal(b, &conf); err != nil {
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
-	conf.PubSubMessageID = m.MessageID
+	conf.PubSubMessageID = string(m.MessageID)
 
 	bot.Run(&conf)
 

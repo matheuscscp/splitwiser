@@ -11,6 +11,6 @@ func main() {
 	os.Setenv(splitwiser.ConfFileEnv, "config.yml")
 	splitwiser.Bot(context.Background(), splitwiser.PubSubMessage{
 		Data:      []byte("start"),
-		MessageID: "dev",
+		MessageID: []byte("dev"),
 	})
 }
