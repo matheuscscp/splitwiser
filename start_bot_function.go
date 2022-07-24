@@ -16,13 +16,13 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte(`<!DOCTYPE html>
 <html>
 	<body>
-	<form action="/StartBot" method="post">
-		<label for="token">Token:</label><br>
-		<input type="password" id="token" name="token"><br>
-		<label for="nonce">Nonce:</label><br>
-		<input type="text" id="nonce" name="nonce"><br>
-		<input type="submit" value="Submit">
-	</form>
+		<form action="/StartBot" method="post">
+			<label for="token">Token:</label><br>
+			<input type="password" id="token" name="token"><br>
+			<label for="nonce">Nonce:</label><br>
+			<input type="text" id="nonce" name="nonce"><br>
+			<input type="submit" value="Submit">
+		</form>
 	</body>
 </html>
 `))
