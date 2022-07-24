@@ -1,0 +1,25 @@
+name: Deploy StartBot Cloud Function
+concurrency: start-bot-concurrency-group
+
+on:
+  push:
+    branches: [ main ]
+
+jobs:
+  deploy-start-bot:
+    steps:
+    - uses: actions/checkout@v3
+
+    - id: auth
+      uses: google-github-actions/auth@v0
+      with:
+        credentials_json: ${{ secrets.gcp_credentials }}
+
+    - id: deploy
+      uses: google-github-actions/deploy-cloud-functions@v0
+      with:
+        name: StartBot
+
+    - uses: rickstaa/action-create-tag@v1
+      with:
+        tag: StartBot-v${{ steps.deploy.outputs.version }}
