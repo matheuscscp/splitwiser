@@ -165,7 +165,7 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 				Owed: halfCostSharedRoundedUp,
 			},
 		},
-                Description: "shared",
+		Description: "shared",
 	}
 
 	return
@@ -174,6 +174,11 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 // Len ...
 func (r Receipt) Len() int {
 	return len(r)
+}
+
+// NextItem ...
+func (r Receipt) NextItem(curItem int) int {
+	return (curItem + 1) % r.Len()
 }
 
 func parsePriceToCents(tok string) PriceInCents {

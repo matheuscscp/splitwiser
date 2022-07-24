@@ -46,6 +46,12 @@ const (
 	backOneItem   = "b"
 )
 
+func (b *botAPI) getUpdatesChannel() tgbotapi.UpdatesChannel {
+	conf := tgbotapi.NewUpdate(0 /*offset*/)
+	conf.Timeout = 60
+	return b.GetUpdatesChan(conf)
+}
+
 func (b *botAPI) send(format string, args ...interface{}) {
 	s := fmt.Sprintf(format, args...)
 	msg := tgbotapi.NewMessage(b.chatID, s)
@@ -114,14 +120,6 @@ Please choose the payer:
 func (b *botAPI) storeCheckpoint(receipt models.Receipt) {
 	if err := b.Manager.StoreCheckpoint(receipt); err != nil {
 		b.send("I had an unexpected error storing the checkpoint: %v", err)
-	}
-}
-
-func (b *botAPI) deleteCheckpoint() {
-	if err := b.Manager.DeleteCheckpoint(); err != nil {
-		b.send("I had an unexpected error deleting the checkpoint: %v", err)
-	} else {
-		b.send("Checkpoint deleted.")
 	}
 }
 
@@ -203,18 +201,26 @@ func Run(conf *config.Config) {
 	}
 
 	resetState := func() {
+		if err := checkpointManager.DeleteCheckpoint(); err != nil {
+			bot.send("I had an unexpected error deleting the checkpoint: %v", err)
+		} else {
+			bot.send("Checkpoint deleted.")
+		}
+
 		botState = botStateIdle
 		receipt = nil
 		payer = ""
 		nextReceiptItem = 0
 		lastModifiedReceiptItem = -1
+
+		bot.send("More receipts?")
 	}
 
-	updatesConfig := tgbotapi.NewUpdate(0 /*offset*/)
-	updatesConfig.Timeout = 60
-	skippedFirstUpdate := false
-	for update := range bot.GetUpdatesChan(updatesConfig) {
-		if bot.closed || update.Message == nil || update.Message.Chat.ID != conf.Telegram.ChatID {
+	for update := range bot.getUpdatesChannel() {
+		if bot.closed ||
+			update.Message == nil ||
+			update.Message.Chat.ID != conf.Telegram.ChatID ||
+			update.Message.Text == "cya" {
 			continue
 		}
 		msg := update.Message.Text
@@ -222,8 +228,6 @@ func Run(conf *config.Config) {
 
 		if botState != botStateIdle && msg == "/abort" {
 			resetState()
-			bot.deleteCheckpoint()
-			bot.send("Okay, then start a new receipt.")
 			continue
 		}
 
@@ -244,10 +248,8 @@ func Run(conf *config.Config) {
 				bot.storeCheckpoint(receipt)
 				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
 				botState = botStateParsingReceiptInteractively
-			} else if skippedFirstUpdate {
-				bot.send("Could not parse the receipt, try again.")
 			} else {
-				skippedFirstUpdate = true
+				bot.send("Could not parse the receipt, try again.")
 			}
 		case botStateParsingReceiptInteractively:
 			owner := models.ReceiptItemOwner(msg)
@@ -263,15 +265,15 @@ func Run(conf *config.Config) {
 				if owner != delayDecision && owner != backOneItem {
 					receipt[nextReceiptItem].Owner = owner
 					lastModifiedReceiptItem = nextReceiptItem
-					nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					nextReceiptItem = receipt.NextItem(nextReceiptItem)
 					for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
-						nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+						nextReceiptItem = receipt.NextItem(nextReceiptItem)
 					}
 					bot.storeCheckpoint(receipt)
 				} else if owner == delayDecision {
-					nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					nextReceiptItem = receipt.NextItem(nextReceiptItem)
 					for receipt[nextReceiptItem].Owner != "" {
-						nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+						nextReceiptItem = receipt.NextItem(nextReceiptItem)
 					}
 				} else { // owner == backOneItem
 					nextReceiptItem = lastModifiedReceiptItem
@@ -310,12 +312,10 @@ func Run(conf *config.Config) {
 				expenseMsg = splitwise.CreateExpense(&conf.Splitwise, store, sharedExpense)
 				bot.send(expenseMsg)
 
-				bot.deleteCheckpoint()
-				bot.send("More receipts?")
 				resetState()
 			}
 		default:
-			logrus.Errorf("invalid botState: %d", botState)
+			bot.send("My state machine led me to an invalid state: %v.", botState)
 		}
 	}
 
