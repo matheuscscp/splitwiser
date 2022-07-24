@@ -26,8 +26,8 @@ const (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
-	if string(m.Data) != "start" {
-		return nil
+	if s := string(m.Data); s != "start" {
+		return fmt.Errorf("message data should be 'start' but was '%s'", s)
 	}
 
 	// read config
