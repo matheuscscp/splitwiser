@@ -151,7 +151,6 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 	costShared := totalInCents[Shared]
 	halfCostSharedRoundedDown := costShared / 2
 	halfCostSharedRoundedUp := (costShared + 1) / 2
-	description = "shared"
 	sharedExpense = &Expense{
 		Cost: costShared,
 		UserShares: [2]*UserShare{
@@ -166,6 +165,7 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 				Owed: halfCostSharedRoundedUp,
 			},
 		},
+                Description: "shared",
 	}
 
 	return
