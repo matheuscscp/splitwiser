@@ -15,8 +15,7 @@ type (
 	// See the documentation for more details:
 	// https://cloud.google.com/pubsub/docs/reference/rest/v1/PubsubMessage
 	PubSubMessage struct {
-		Data      []byte `json:"data"`
-		MessageID []byte `json:"messageId"`
+		Data []byte `json:"data"`
 	}
 )
 
@@ -26,11 +25,6 @@ const (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
-	if s := string(m.Data); s != "start" {
-		return fmt.Errorf("message data should be 'start' but was '%s'", s)
-	}
-
-	// read config
 	b, err := os.ReadFile(os.Getenv(ConfFileEnv))
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)
@@ -39,9 +33,7 @@ func Bot(ctx context.Context, m PubSubMessage) error {
 	if err := yaml.Unmarshal(b, &conf); err != nil {
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
-	conf.PubSubMessageID = string(m.MessageID)
-
+	conf.Nonce = string(m.Data)
 	bot.Run(&conf)
-
 	return nil
 }

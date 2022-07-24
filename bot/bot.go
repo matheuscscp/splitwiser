@@ -31,7 +31,7 @@ type (
 			AnaID     int64  `yaml:"anaID"`
 			MatheusID int64  `yaml:"matheusID"`
 		} `yaml:"splitwise"`
-		PubSubMessageID string `yaml:"-"`
+		Nonce string `yaml:"-"`
 	}
 
 	botAPI struct {
@@ -95,7 +95,7 @@ func Run(conf *Config) {
 		BotAPI: telegramClient,
 		chatID: conf.Telegram.ChatID,
 	}
-	bot.send("Hi, I was started by message ID '%s'.", conf.PubSubMessageID)
+	bot.send("Hi, I was started with nonce '%s'.", conf.Nonce)
 
 	// timeout thread
 	timeoutThreadShutdownChannel := make(chan struct{})
