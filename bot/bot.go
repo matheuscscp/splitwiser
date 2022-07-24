@@ -1,9 +1,11 @@
 package bot
 
 import (
+	"errors"
 	"fmt"
 	"time"
 
+	"github.com/matheuscscp/splitwiser/checkpoint"
 	"github.com/matheuscscp/splitwiser/config"
 	"github.com/matheuscscp/splitwiser/models"
 	"github.com/matheuscscp/splitwiser/splitwise"
@@ -22,6 +24,7 @@ func init() {
 type (
 	botAPI struct {
 		*tgbotapi.BotAPI
+		checkpoint.Manager
 
 		chatID int64
 		closed bool
@@ -91,7 +94,38 @@ func (b *botAPI) sendOwnerChoice(lastModifiedReceiptItem int) {
 	)
 }
 
-func (b *botAPI) close() {
+func (b *botAPI) sendPayerChoice(receipt models.Receipt) {
+	totalInCents := receipt.ComputeTotals()
+	b.send(`Ana's total: %s
+Matheus's total: %s
+Shared total: %s
+
+Please choose the payer:
+%s - Ana
+%s - Matheus`,
+		totalInCents[models.Ana].Format(),
+		totalInCents[models.Matheus].Format(),
+		totalInCents[models.Shared].Format(),
+		models.Ana,
+		models.Matheus,
+	)
+}
+
+func (b *botAPI) storeCheckpoint(receipt models.Receipt) {
+	if err := b.Manager.StoreCheckpoint(receipt); err != nil {
+		b.send("I had an unexpected error storing the checkpoint: %v", err)
+	}
+}
+
+func (b *botAPI) deleteCheckpoint() {
+	if err := b.Manager.DeleteCheckpoint(); err != nil {
+		b.send("I had an unexpected error deleting the checkpoint: %v", err)
+	} else {
+		b.send("Checkpoint deleted.")
+	}
+}
+
+func (b *botAPI) shutdown() {
 	b.closed = true
 	b.StopReceivingUpdates()
 }
@@ -106,16 +140,23 @@ func Run(conf *config.Config) {
 	}
 	logrus.Infof("Authenticated on Telegram bot account %s", telegramClient.Self.UserName)
 
-	bot := &botAPI{
-		BotAPI: telegramClient,
-		chatID: conf.Telegram.ChatID,
+	checkpointManager, err := checkpoint.NewManager()
+	if err != nil {
+		logrus.Fatalf("error creating checkpoint manager: %v", err)
 	}
+
+	bot := &botAPI{
+		BotAPI:  telegramClient,
+		Manager: checkpointManager,
+		chatID:  conf.Telegram.ChatID,
+	}
+	defer bot.Close()
 	bot.send("Hi, I was started with the nonce '%s'.", conf.Nonce)
 
 	// timeout thread
 	shutdownChannel := make(chan struct{})
 	go func() {
-		defer bot.close()
+		defer bot.shutdown()
 		timer := time.NewTimer(botTimeoutWatchInterval)
 		for {
 			select {
@@ -142,6 +183,25 @@ func Run(conf *config.Config) {
 	var nextReceiptItem int
 	lastModifiedReceiptItem := -1
 
+	if err := checkpointManager.LoadCheckpoint(&receipt); err != nil {
+		if !errors.Is(err, checkpoint.ErrCheckpointNotExist) {
+			bot.send("I had an unexpected error loading the checkpoint: %v", err)
+		}
+		receipt = nil
+	} else {
+		bot.send("Checkpoint found.")
+		for nextReceiptItem < receipt.Len() && receipt[nextReceiptItem].Owner != "" {
+			nextReceiptItem++
+		}
+		if nextReceiptItem == receipt.Len() {
+			bot.sendPayerChoice(receipt)
+			botState = botStateWaitingForPayer
+		} else {
+			bot.sendReceiptItem(receipt[nextReceiptItem], lastModifiedReceiptItem)
+			botState = botStateParsingReceiptInteractively
+		}
+	}
+
 	resetState := func() {
 		botState = botStateIdle
 		receipt = nil
@@ -162,6 +222,7 @@ func Run(conf *config.Config) {
 
 		if botState != botStateIdle && msg == "/abort" {
 			resetState()
+			bot.deleteCheckpoint()
 			bot.send("Okay, then start a new receipt.")
 			continue
 		}
@@ -180,6 +241,7 @@ func Run(conf *config.Config) {
 		case botStateIdle:
 			receipt = models.ParseReceipt(msg)
 			if receipt.Len() > 0 {
+				bot.storeCheckpoint(receipt)
 				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
 				botState = botStateParsingReceiptInteractively
 			} else if skippedFirstUpdate {
@@ -205,6 +267,7 @@ func Run(conf *config.Config) {
 					for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
 						nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
 					}
+					bot.storeCheckpoint(receipt)
 				} else if owner == delayDecision {
 					nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
 					for receipt[nextReceiptItem].Owner != "" {
@@ -214,25 +277,13 @@ func Run(conf *config.Config) {
 					nextReceiptItem = lastModifiedReceiptItem
 					lastModifiedReceiptItem = -1
 					receipt[nextReceiptItem].Owner = ""
+					bot.storeCheckpoint(receipt)
 				}
 
 				if receipt[nextReceiptItem].Owner == "" {
 					bot.sendReceiptItem(receipt[nextReceiptItem], lastModifiedReceiptItem)
 				} else {
-					totalInCents := receipt.ComputeTotals()
-					bot.send(`Ana's total: %s
-Matheus's total: %s
-Shared total: %s
-
-Please choose the payer:
-%s - Ana
-%s - Matheus`,
-						totalInCents[models.Ana].Format(),
-						totalInCents[models.Matheus].Format(),
-						totalInCents[models.Shared].Format(),
-						models.Ana,
-						models.Matheus,
-					)
+					bot.sendPayerChoice(receipt)
 					botState = botStateWaitingForPayer
 				}
 			}
@@ -259,6 +310,8 @@ Please choose the payer:
 				expenseMsg = splitwise.CreateExpense(&conf.Splitwise, store, sharedExpense)
 				bot.send(expenseMsg)
 
+				bot.deleteCheckpoint()
+				bot.send("More receipts?")
 				resetState()
 			}
 		default:
