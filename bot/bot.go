@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/matheuscscp/splitwiser/config"
 	"github.com/matheuscscp/splitwiser/models"
 	"github.com/matheuscscp/splitwiser/splitwise"
 
@@ -19,21 +20,6 @@ func init() {
 }
 
 type (
-	// Config ...
-	Config struct {
-		Telegram struct {
-			Token  string `yaml:"token"`
-			ChatID int64  `yaml:"chatID"`
-		} `yaml:"telegram"`
-		Splitwise struct {
-			Token     string `yaml:"token"`
-			GroupID   int64  `yaml:"groupID"`
-			AnaID     int64  `yaml:"anaID"`
-			MatheusID int64  `yaml:"matheusID"`
-		} `yaml:"splitwise"`
-		Nonce string `yaml:"-"`
-	}
-
 	botAPI struct {
 		*tgbotapi.BotAPI
 
@@ -41,8 +27,7 @@ type (
 		closed bool
 	}
 
-	botState         int
-	receiptItemOwner string
+	botState int
 )
 
 const (
@@ -51,16 +36,11 @@ const (
 	botStateWaitingForPayer
 	botStateWaitingForStore
 
-	ana            receiptItemOwner = "a"
-	matheus        receiptItemOwner = "m"
-	shared         receiptItemOwner = "s"
-	delay          receiptItemOwner = "d"
-	notReceiptItem receiptItemOwner = "n"
-
-	zeroCents = models.PriceInCents(0)
-
 	botTimeout              = 7 * time.Minute
 	botTimeoutWatchInterval = 3 * time.Second
+
+	delayDecision = "d"
+	backOneItem   = "b"
 )
 
 func (b *botAPI) send(format string, args ...interface{}) {
@@ -73,13 +53,51 @@ func (b *botAPI) send(format string, args ...interface{}) {
 	}
 }
 
+func (b *botAPI) sendReceiptItem(item *models.ReceiptItem, lastModifiedReceiptItem int) {
+	var back string
+	if lastModifiedReceiptItem >= 0 {
+		back = fmt.Sprintf("\n%s - Back one receipt item", backOneItem)
+	}
+	b.send(`Item: "%s" (%s)
+
+(see if the next line rings a bell: "%s")
+
+Please choose the owner:
+%s - Ana
+%s - Matheus
+%s - Shared
+%s - Not a receipt item
+%s - Delay item decision%s`,
+		item.MainLine,
+		item.Price.Format(),
+		item.NextLine,
+		models.Ana,
+		models.Matheus,
+		models.Shared,
+		models.NotReceiptItem,
+		delayDecision,
+		back,
+	)
+}
+
+func (b *botAPI) sendOwnerChoice(lastModifiedReceiptItem int) {
+	var back string
+	if lastModifiedReceiptItem >= 0 {
+		back = fmt.Sprintf(", %s", backOneItem)
+	}
+	b.send(
+		"Invalid choice. Choose one of {%s, %s, %s, %s, %s%s}.",
+		models.Ana, models.Matheus, models.Shared, models.NotReceiptItem, delayDecision, back,
+	)
+}
+
 func (b *botAPI) close() {
 	b.closed = true
 	b.StopReceivingUpdates()
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run(conf *Config) {
+func Run(conf *config.Config) {
 	t0 := time.Now()
 
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
@@ -92,7 +110,7 @@ func Run(conf *Config) {
 		BotAPI: telegramClient,
 		chatID: conf.Telegram.ChatID,
 	}
-	bot.send("Hi, I was started with nonce '%s'.", conf.Nonce)
+	bot.send("Hi, I was started with the nonce '%s'.", conf.Nonce)
 
 	// timeout thread
 	shutdownChannel := make(chan struct{})
@@ -119,98 +137,22 @@ func Run(conf *Config) {
 
 	// bot state
 	botState := botStateIdle
-	var receiptItems []*models.ReceiptItem
-	totalInCents := make(map[receiptItemOwner]models.PriceInCents)
-	var payer receiptItemOwner
-	var store string
+	var receipt models.Receipt
+	var payer models.ReceiptItemOwner
+	var nextReceiptItem int
+	lastModifiedReceiptItem := -1
 
 	resetState := func() {
 		botState = botStateIdle
-		receiptItems = nil
-		totalInCents = make(map[receiptItemOwner]models.PriceInCents)
+		receipt = nil
 		payer = ""
-		store = ""
-	}
-
-	printNextReceiptItem := func() {
-		item := receiptItems[0]
-		bot.send(`Item: "%s" (%s)
-
-(see if the next line rings a bell: "%s")
-
-Please choose the owner:
-%s - Ana
-%s - Matheus
-%s - Shared
-%s - Put item in the end of the list
-%s - Not a receipt item`,
-			item.MainLine,
-			item.PriceInCents.Format(),
-			item.NextLine,
-			ana,
-			matheus,
-			shared,
-			delay,
-			notReceiptItem,
-		)
-	}
-
-	updateSplitwise := func() {
-		cost := totalInCents[ana]
-		payerID, borrowerID := conf.Splitwise.MatheusID, conf.Splitwise.AnaID
-		description := "vegan"
-		if payer == ana {
-			cost = totalInCents[matheus]
-			payerID, borrowerID = conf.Splitwise.AnaID, conf.Splitwise.MatheusID
-			description = "non-vegan"
-		}
-		bot.send("Creating non-shared expense...")
-		expenseMsg := splitwise.CreateExpense(
-			conf.Splitwise.Token,
-			conf.Splitwise.GroupID,
-			store,
-			description,
-			cost,
-			&splitwise.UserShare{
-				UserID: payerID,
-				Paid:   cost,
-				Owed:   zeroCents,
-			},
-			&splitwise.UserShare{
-				UserID: borrowerID,
-				Paid:   zeroCents,
-				Owed:   cost,
-			},
-		)
-		bot.send(expenseMsg)
-
-		costShared := totalInCents[shared]
-		halfCostSharedRoundedDown := costShared / 2
-		halfCostSharedRoundedUp := (costShared + 1) / 2
-		description = "shared"
-		bot.send("Creating shared expense...")
-		expenseMsg = splitwise.CreateExpense(
-			conf.Splitwise.Token,
-			conf.Splitwise.GroupID,
-			store,
-			description,
-			costShared,
-			&splitwise.UserShare{
-				UserID: payerID,
-				Paid:   costShared,
-				Owed:   halfCostSharedRoundedDown,
-			},
-			&splitwise.UserShare{
-				UserID: borrowerID,
-				Paid:   zeroCents,
-				Owed:   halfCostSharedRoundedUp,
-			},
-		)
-		bot.send(expenseMsg)
+		nextReceiptItem = 0
+		lastModifiedReceiptItem = -1
 	}
 
 	updatesConfig := tgbotapi.NewUpdate(0 /*offset*/)
 	updatesConfig.Timeout = 60
+	skippedFirstUpdate := false
 	for update := range bot.GetUpdatesChan(updatesConfig) {
 		if bot.closed || update.Message == nil || update.Message.Chat.ID != conf.Telegram.ChatID {
 			continue
@@ -236,35 +178,48 @@ Please choose the owner:
 
 		switch botState {
 		case botStateIdle:
-			receiptItems = models.ParseReceipt(msg)
-			if len(receiptItems) > 0 {
-				printNextReceiptItem()
+			receipt = models.ParseReceipt(msg)
+			if receipt.Len() > 0 {
+				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
 				botState = botStateParsingReceiptInteractively
-			} else {
+			} else if skippedFirstUpdate {
 				bot.send("Could not parse the receipt, try again.")
+			} else {
+				skippedFirstUpdate = true
 			}
 		case botStateParsingReceiptInteractively:
-			owner := receiptItemOwner(msg)
-			if owner != ana &&
-				owner != matheus &&
-				owner != shared &&
-				owner != delay &&
-				owner != notReceiptItem {
-				bot.send("Invalid choice. Choose one of {%s, %s, %s, %s, %s}.", ana, matheus, shared, delay, notReceiptItem)
+			owner := models.ReceiptItemOwner(msg)
+			if owner != models.Ana &&
+				owner != models.Matheus &&
+				owner != models.Shared &&
+				owner != models.NotReceiptItem &&
+				owner != delayDecision &&
+				(owner != backOneItem || lastModifiedReceiptItem < 0) {
+				bot.sendOwnerChoice(lastModifiedReceiptItem)
 			} else {
 				// process owner input
-				if item := receiptItems[0]; owner == delay {
-					receiptItems = append(receiptItems, item)
-				} else if owner != notReceiptItem {
-					totalInCents[owner] += item.PriceInCents
+				if owner != delayDecision && owner != backOneItem {
+					receipt[nextReceiptItem].Owner = owner
+					lastModifiedReceiptItem = nextReceiptItem
+					nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
+						nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					}
+				} else if owner == delayDecision {
+					nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					for receipt[nextReceiptItem].Owner != "" {
+						nextReceiptItem = (nextReceiptItem + 1) % receipt.Len()
+					}
+				} else { // owner == backOneItem
+					nextReceiptItem = lastModifiedReceiptItem
+					lastModifiedReceiptItem = -1
+					receipt[nextReceiptItem].Owner = ""
 				}
 
-				// pop item
-				receiptItems = receiptItems[1:]
-
-				if len(receiptItems) > 0 {
-					printNextReceiptItem()
+				if receipt[nextReceiptItem].Owner == "" {
+					bot.sendReceiptItem(receipt[nextReceiptItem], lastModifiedReceiptItem)
 				} else {
+					totalInCents := receipt.ComputeTotals()
 					bot.send(`Ana's total: %s
 Matheus's total: %s
 Shared total: %s
@@ -272,29 +227,38 @@ Shared total: %s
 Please choose the payer:
 %s - Ana
 %s - Matheus`,
-						totalInCents[ana].Format(),
-						totalInCents[matheus].Format(),
-						totalInCents[shared].Format(),
-						ana,
-						matheus,
+						totalInCents[models.Ana].Format(),
+						totalInCents[models.Matheus].Format(),
+						totalInCents[models.Shared].Format(),
+						models.Ana,
+						models.Matheus,
 					)
 					botState = botStateWaitingForPayer
 				}
 			}
 		case botStateWaitingForPayer:
-			payer = receiptItemOwner(msg)
-			if payer != ana && payer != matheus {
-				bot.send("Invalid choice. Choose one of {%s, %s}.", ana, matheus)
+			payer = models.ReceiptItemOwner(msg)
+			if payer != models.Ana && payer != models.Matheus {
+				bot.send("Invalid choice. Choose one of {%s, %s}.", models.Ana, models.Matheus)
 			} else {
 				bot.send("Please type in the name of the store.")
 				botState = botStateWaitingForStore
 			}
 		case botStateWaitingForStore:
-			store = msg
+			store := msg
 			if len(store) == 0 {
 				bot.send("Store name cannot be empty.")
 			} else {
-				updateSplitwise()
+				nonSharedExpense, sharedExpense := receipt.ComputeExpenses(payer)
+
+				bot.send("Creating non-shared expense...")
+				expenseMsg := splitwise.CreateExpense(&conf.Splitwise, store, nonSharedExpense)
+				bot.send(expenseMsg)
+
+				bot.send("Creating shared expense...")
+				expenseMsg = splitwise.CreateExpense(&conf.Splitwise, store, sharedExpense)
+				bot.send(expenseMsg)
+
 				resetState()
 			}
 		default:

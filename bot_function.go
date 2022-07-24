@@ -6,6 +6,7 @@ import (
 	"os"
 
 	"github.com/matheuscscp/splitwiser/bot"
+	"github.com/matheuscscp/splitwiser/config"
 
 	"gopkg.in/yaml.v3"
 )
@@ -25,15 +26,19 @@ const (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
+	// read config file
 	b, err := os.ReadFile(os.Getenv(ConfFileEnv))
 	if err != nil {
 		return fmt.Errorf("error reading config file: %w", err)
 	}
-	var conf bot.Config
+
+	// unmarshal config
+	var conf config.Config
 	if err := yaml.Unmarshal(b, &conf); err != nil {
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
 	conf.Nonce = string(m.Data)
+
 	bot.Run(&conf)
 	return nil
 }
