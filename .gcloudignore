@@ -16,8 +16,6 @@
 node_modules
 #!include:.gitignore
 
-splitwiser
-load-envs.sh
-deploy-logs.txt
+cmd/dev
 deploy.sh
 do-deploy.sh
