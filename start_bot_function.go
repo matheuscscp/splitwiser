@@ -43,7 +43,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 
 	// create pubsub client
 	ctx := r.Context()
-	client, err := pubsub.NewClient(ctx, "splitwiser-356519" /*projectID*/)
+	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("error creating pubsub client: %v", err)))

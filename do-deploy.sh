@@ -8,7 +8,8 @@ gcloud functions deploy StartBot \
     --trigger-http \
     --allow-unauthenticated \
     --security-level secure-always \
-    --set-secrets 'TOKEN=start-bot-token:latest'
+    --set-secrets 'TOKEN=start-bot-token:latest' \
+    --set-env-vars 'PROJECT_ID=splitwiser-356519'
 
 # create git tag for StartBot
 start_bot_version=$(gcloud functions describe StartBot --format json | jq .versionId -r)
