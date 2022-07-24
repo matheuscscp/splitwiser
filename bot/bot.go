@@ -93,7 +93,7 @@ func Run(conf *Config) {
 		BotAPI: telegramClient,
 		chatID: conf.Telegram.ChatID,
 	}
-	bot.send("Hi, I was started by message ID %s.", conf.PubSubMessageID)
+	bot.send("Hi, I was started by message ID '%s'.", conf.PubSubMessageID)
 
 	// timeout thread
 	lastActivity := time.Now()

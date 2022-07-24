@@ -61,5 +61,5 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Bot will be started. MessageID: %s", messageID)))
+	w.Write([]byte(fmt.Sprintf("Bot will be started by message ID '%s'.", messageID)))
 }
