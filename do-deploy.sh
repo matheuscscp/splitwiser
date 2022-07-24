@@ -19,7 +19,8 @@ git tag $start_bot_git_tag
 gcloud functions deploy Bot \
     --runtime go116 \
     --trigger-topic start-bot \
-    --set-secrets '/etc/secrets/config/latest=bot-config:latest'
+    --set-secrets '/etc/config.yml=bot-config:latest' \
+    --set-env-vars 'CONF_FILE=/etc/config.yml'
 
 # create git tag for Bot
 bot_version=$(gcloud functions describe Bot --format json | jq .versionId -r)
