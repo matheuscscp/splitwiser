@@ -59,8 +59,8 @@ const (
 
 	zeroCents = models.PriceInCents(0)
 
-	botTimeout              = 10 * time.Minute
-	botTimeoutWatchInterval = 10 * time.Second
+	botTimeout              = 7 * time.Minute
+	botTimeoutWatchInterval = 3 * time.Second
 )
 
 func (b *botAPI) send(format string, args ...interface{}) {
@@ -83,6 +83,8 @@ func (b *botAPI) close() {
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
 func Run(conf *Config) {
+	t0 := time.Now()
+
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
 	if err != nil {
 		logrus.Fatalf("error creating Telegram Bot API client: %v", err)
@@ -96,14 +98,13 @@ func Run(conf *Config) {
 	bot.send("Hi, I was started by message ID '%s'.", conf.PubSubMessageID)
 
 	// timeout thread
-	lastActivity := time.Now()
 	timeoutThreadShutdownChannel := make(chan struct{})
 	go func() {
 		timer := time.NewTimer(botTimeoutWatchInterval)
 		for {
 			select {
 			case <-timer.C:
-				if botTimeout <= time.Since(lastActivity) {
+				if botTimeout <= time.Since(t0) {
 					bot.close()
 					return
 				}
@@ -209,14 +210,12 @@ Please choose the owner:
 
 	updatesConfig := tgbotapi.NewUpdate(0 /*offset*/)
 	updatesConfig.Timeout = 60
-	t0 := time.Now()
 	for update := range bot.GetUpdatesChan(updatesConfig) {
 		if bot.closed || update.Message == nil || update.Message.Chat.ID != conf.Telegram.ChatID {
 			continue
 		}
 		msg := update.Message.Text
 		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
-		lastActivity = time.Now()
 
 		if botState != botStateIdle && msg == "/abort" {
 			resetState()
