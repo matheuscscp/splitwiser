@@ -52,8 +52,8 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	defer client.Close()
 
 	// publish start msg
+	topic := client.Topic(os.Getenv("TOPIC_ID"))
 	nonce := r.PostForm.Get("nonce")
-	topic := client.Topic("start-bot" /*id*/)
 	pubResult := topic.Publish(ctx, &pubsub.Message{
 		Data: []byte(nonce),
 	})
