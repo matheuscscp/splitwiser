@@ -50,7 +50,8 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	defer client.Close()
 
 	// publish start msg
-	if _, err := client.Topic(os.Getenv("TOPIC_ID")).Publish(ctx, &pubsub.Message{}).Get(ctx); err != nil {
+	msg := &pubsub.Message{Data: []byte("start")}
+	if _, err := client.Topic(os.Getenv("TOPIC_ID")).Publish(ctx, msg).Get(ctx); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		w.Write([]byte(fmt.Sprintf("error publishing start message: %v", err)))
 		return
