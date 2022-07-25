@@ -129,9 +129,7 @@ func (b *botAPI) shutdown() {
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run(conf *config.Config) {
-	t0 := time.Now()
-
+func Run(conf *config.Config, startTime time.Time) {
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
 	if err != nil {
 		logrus.Fatalf("error creating Telegram Bot API client: %v", err)
@@ -159,7 +157,7 @@ func Run(conf *config.Config) {
 		for {
 			select {
 			case <-timer.C:
-				if botTimeout <= time.Since(t0) {
+				if botTimeout <= time.Since(startTime) {
 					bot.send("Timed out waiting for input. Shutting down.")
 					return
 				}
@@ -232,7 +230,7 @@ func Run(conf *config.Config) {
 		}
 
 		if msg == "/uptime" {
-			bot.send("I'm up for %s.", time.Since(t0))
+			bot.send("I'm up for %s.", time.Since(startTime))
 			continue
 		}
 

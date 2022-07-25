@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"os"
+	"time"
 
 	"github.com/matheuscscp/splitwiser/bot"
 	"github.com/matheuscscp/splitwiser/config"
@@ -26,6 +27,8 @@ const (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
+	startTime := time.Now()
+
 	// read config file
 	b, err := os.ReadFile(os.Getenv(ConfFileEnv))
 	if err != nil {
@@ -39,6 +42,6 @@ func Bot(ctx context.Context, m PubSubMessage) error {
 	}
 	conf.Nonce = string(m.Data)
 
-	bot.Run(&conf)
+	bot.Run(&conf, startTime)
 	return nil
 }
