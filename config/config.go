@@ -1,6 +1,13 @@
 package config
 
-import "github.com/matheuscscp/splitwiser/models"
+import (
+	"fmt"
+	"os"
+
+	"github.com/matheuscscp/splitwiser/models"
+
+	"gopkg.in/yaml.v3"
+)
 
 type (
 	// Config ...
@@ -22,6 +29,24 @@ type (
 	}
 )
 
+// Load ...
+func Load() (*Config, error) {
+	confFile := os.Getenv("CONF_FILE")
+	if confFile == "" {
+		confFile = "config.yml"
+	}
+	b, err := os.ReadFile(confFile)
+	if err != nil {
+		return nil, fmt.Errorf("error reading config file '%s': %w", confFile, err)
+	}
+	var conf Config
+	if err := yaml.Unmarshal(b, &conf); err != nil {
+		return nil, fmt.Errorf("error unmarshaling config: %w", err)
+	}
+	return &conf, nil
+}
+
+// GetUserID ...
 func (s *Splitwise) GetUserID(user models.ReceiptItemOwner) int64 {
 	if user == models.Matheus {
 		return s.MatheusID
