@@ -129,14 +129,14 @@ func (b *botAPI) shutdown() {
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run(conf *config.Config, startTime time.Time) {
+func Run(conf *config.Config, startTime time.Time, nonce string) {
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
 	if err != nil {
 		logrus.Fatalf("error creating Telegram Bot API client: %v", err)
 	}
 	logrus.Infof("Authenticated on Telegram bot account %s", telegramClient.Self.UserName)
 
-	checkpointManager, err := checkpoint.NewManager()
+	checkpointManager, err := checkpoint.NewManager(conf.CheckpointBucket)
 	if err != nil {
 		logrus.Fatalf("error creating checkpoint manager: %v", err)
 	}
@@ -147,7 +147,7 @@ func Run(conf *config.Config, startTime time.Time) {
 		chatID:  conf.Telegram.ChatID,
 	}
 	defer bot.Close()
-	bot.send("Hi, I was started with the nonce '%s'.", conf.Nonce)
+	bot.send("Hi, I was started with the nonce '%s'.", nonce)
 
 	// timeout thread
 	shutdownChannel := make(chan struct{})

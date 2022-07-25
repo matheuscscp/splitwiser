@@ -28,6 +28,7 @@ const (
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
 	startTime := time.Now()
+	nonce := string(m.Data)
 
 	// read config file
 	b, err := os.ReadFile(os.Getenv(ConfFileEnv))
@@ -40,8 +41,7 @@ func Bot(ctx context.Context, m PubSubMessage) error {
 	if err := yaml.Unmarshal(b, &conf); err != nil {
 		return fmt.Errorf("error unmarshaling config: %w", err)
 	}
-	conf.Nonce = string(m.Data)
 
-	bot.Run(&conf, startTime)
+	bot.Run(&conf, startTime, nonce)
 	return nil
 }

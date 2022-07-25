@@ -9,8 +9,8 @@ type (
 			Token  string `yaml:"token"`
 			ChatID int64  `yaml:"chatID"`
 		} `yaml:"telegram"`
-		Splitwise Splitwise `yaml:"splitwise"`
-		Nonce     string    `yaml:"-"`
+		Splitwise        Splitwise `yaml:"splitwise"`
+		CheckpointBucket string    `yaml:"checkpointBucket"`
 	}
 
 	// Splitwise ...

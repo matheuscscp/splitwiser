@@ -30,13 +30,13 @@ var (
 )
 
 // NewManager ...
-func NewManager() (Manager, error) {
+func NewManager(bucket string) (Manager, error) {
 	client, err := storage.NewClient(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("error creating cloud storage client: %w", err)
 	}
 	return &manager{
-		client: client.Bucket("splitwiser-checkpoint").Object("checkpoint.yml"),
+		client: client.Bucket(bucket).Object("checkpoint.yml"),
 		close:  func() { client.Close() },
 	}, nil
 }
