@@ -1,15 +1,16 @@
 package main
 
 import (
-	"context"
 	"os"
 
-	"github.com/matheuscscp/splitwiser"
+	"github.com/matheuscscp/splitwiser/bot"
+
+	"github.com/sirupsen/logrus"
 )
 
 func main() {
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "gcloud.json")
-	splitwiser.Bot(context.Background(), splitwiser.PubSubMessage{
-		Data: []byte("dev"),
-	})
+	if err := bot.Run("dev" /*nonce*/); err != nil {
+		logrus.Fatal(err)
+	}
 }
