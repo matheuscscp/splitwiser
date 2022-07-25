@@ -19,8 +19,6 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		<form action="/StartBot" method="post">
 			<label for="token">Token:</label><br>
 			<input type="password" id="token" name="token"><br>
-			<label for="nonce">Nonce:</label><br>
-			<input type="text" id="nonce" name="nonce"><br>
 			<input type="submit" value="Submit">
 		</form>
 	</body>
@@ -52,16 +50,11 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	defer client.Close()
 
 	// publish start msg
-	topic := client.Topic(os.Getenv("TOPIC_ID"))
-	nonce := r.PostForm.Get("nonce")
-	pubResult := topic.Publish(ctx, &pubsub.Message{
-		Data: []byte(nonce),
-	})
-	if _, err := pubResult.Get(ctx); err != nil {
+	if _, err := client.Topic(os.Getenv("TOPIC_ID")).Publish(ctx, &pubsub.Message{}).Get(ctx); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("error publishing start msg: %v", err)))
+		w.Write([]byte(fmt.Sprintf("error publishing start message: %v", err)))
 		return
 	}
 
-	w.Write([]byte(fmt.Sprintf("Bot will be started with nonce '%s'.", nonce)))
+	w.Write([]byte("done"))
 }

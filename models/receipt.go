@@ -36,9 +36,9 @@ const (
 )
 
 var (
-	spacesRegex                  = regexp.MustCompile(`\s+`)
-	priceTokenRegex              = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
-	tescoSingleAsteriskLineRegex = regexp.MustCompile(`^\s*\*\s*$`)
+	regexSpaces                  = regexp.MustCompile(`\s+`)
+	regexPriceToken              = regexp.MustCompile(`^(EUR){0,1}(\d+)\.(\d{1,2})$`)
+	regexTescoSingleAsteriskLine = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
 // ParseReceipt ...
@@ -73,11 +73,11 @@ func parseLidlReceipt(receiptText string) (receipt Receipt) {
 
 func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
 	priceIdxs = append(priceIdxs, -1)
-	for _, tok := range spacesRegex.Split(receipt, -1) {
+	for _, tok := range regexSpaces.Split(receipt, -1) {
 		if tok == "" {
 			continue
 		}
-		if priceTokenRegex.MatchString(tok) {
+		if regexPriceToken.MatchString(tok) {
 			priceIdxs = append(priceIdxs, len(tokens))
 		}
 		tokens = append(tokens, tok)
@@ -102,7 +102,7 @@ func parseItemListFollowedByPriceList(receiptLines []string) (receipt Receipt) {
 func removeTescoSingleAsteriskLines(receiptLines []string) []string {
 	var ret []string
 	for _, s := range receiptLines {
-		if !tescoSingleAsteriskLineRegex.MatchString(s) {
+		if !regexTescoSingleAsteriskLine.MatchString(s) {
 			ret = append(ret, s)
 		}
 	}
@@ -182,7 +182,7 @@ func (r Receipt) NextItem(curItem int) int {
 }
 
 func parsePriceToCents(tok string) PriceInCents {
-	m := priceTokenRegex.FindStringSubmatch(tok)
+	m := regexPriceToken.FindStringSubmatch(tok)
 	euros, _ := strconv.ParseInt(m[2], 10, 64)
 	if len(m[2]) == 0 {
 		euros = 0

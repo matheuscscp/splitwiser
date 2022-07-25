@@ -10,15 +10,15 @@ import (
 )
 
 type (
-	// Manager ...
-	Manager interface {
-		StoreCheckpoint(v interface{}) error
-		LoadCheckpoint(v interface{}) error
-		DeleteCheckpoint() error
+	// Service ...
+	Service interface {
+		Store(v interface{}) error
+		Load(v interface{}) error
+		Delete() error
 		Close()
 	}
 
-	manager struct {
+	service struct {
 		client *storage.ObjectHandle
 		close  func()
 	}
@@ -29,26 +29,26 @@ var (
 	ErrCheckpointNotExist = errors.New("checkpoint does not exist")
 )
 
-// NewManager ...
-func NewManager(bucket string) (Manager, error) {
+// NewService ...
+func NewService(bucket string) (Service, error) {
 	client, err := storage.NewClient(context.Background())
 	if err != nil {
 		return nil, fmt.Errorf("error creating cloud storage client: %w", err)
 	}
-	return &manager{
+	return &service{
 		client: client.Bucket(bucket).Object("checkpoint.yml"),
 		close:  func() { client.Close() },
 	}, nil
 }
 
 // Close ...
-func (m *manager) Close() {
-	m.close()
+func (s *service) Close() {
+	s.close()
 }
 
-// StoreCheckpoint ...
-func (m *manager) StoreCheckpoint(v interface{}) error {
-	w := m.client.NewWriter(context.Background())
+// Store ...
+func (s *service) Store(v interface{}) error {
+	w := s.client.NewWriter(context.Background())
 	defer w.Close()
 
 	encoder := yaml.NewEncoder(w)
@@ -60,9 +60,9 @@ func (m *manager) StoreCheckpoint(v interface{}) error {
 	return nil
 }
 
-// LoadCheckpoint ...
-func (m *manager) LoadCheckpoint(v interface{}) error {
-	r, err := m.client.NewReader(context.Background())
+// Load ...
+func (s *service) Load(v interface{}) error {
+	r, err := s.client.NewReader(context.Background())
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
 			return ErrCheckpointNotExist
@@ -78,7 +78,7 @@ func (m *manager) LoadCheckpoint(v interface{}) error {
 	return nil
 }
 
-// DeleteCheckpoint ...
-func (m *manager) DeleteCheckpoint() error {
-	return m.client.Delete(context.Background())
+// Delete ...
+func (s *service) Delete() error {
+	return s.client.Delete(context.Background())
 }

@@ -21,7 +21,7 @@ git tag $start_bot_git_tag
 gcloud functions deploy Bot \
     --runtime go116 \
     --trigger-topic start-bot \
-    --timeout 9m \
+    --timeout 540s \
     --set-secrets '/etc/secrets/config/latest.yml=bot-config:latest' \
     --set-env-vars 'CONF_FILE=/etc/secrets/config/latest.yml'
 

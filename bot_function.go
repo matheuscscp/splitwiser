@@ -17,5 +17,5 @@ type (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
-	return bot.Run(string(m.Data) /*nonce*/)
+	return bot.Run()
 }

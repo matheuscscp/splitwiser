@@ -10,7 +10,7 @@ import (
 
 func main() {
 	os.Setenv("GOOGLE_APPLICATION_CREDENTIALS", "gcloud.json")
-	if err := bot.Run("dev" /*nonce*/); err != nil {
+	if err := bot.Run(); err != nil {
 		logrus.Fatal(err)
 	}
 }
