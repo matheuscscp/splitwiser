@@ -5,6 +5,7 @@ set -e
 # deploy StartBot
 gcloud functions deploy StartBot \
     --runtime go116 \
+    --region europe-west2 \
     --trigger-http \
     --allow-unauthenticated \
     --security-level secure-always \
@@ -20,6 +21,7 @@ git tag $start_bot_git_tag
 # deploy Bot
 gcloud functions deploy Bot \
     --runtime go116 \
+    --region europe-west2 \
     --trigger-topic start-bot \
     --timeout 540s \
     --set-secrets '/etc/secrets/config/latest.yml=bot-config:latest' \

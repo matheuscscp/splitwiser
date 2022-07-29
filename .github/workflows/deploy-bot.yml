@@ -21,6 +21,7 @@ jobs:
       with:
         name: Bot
         runtime: go116
+        region: europe-west2
         event_trigger_type: google.pubsub.topic.publish
         event_trigger_resource: projects/splitwiser-356519/topics/start-bot
         timeout: 540

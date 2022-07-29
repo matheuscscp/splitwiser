@@ -21,6 +21,7 @@ jobs:
       with:
         name: StartBot
         runtime: go116
+        region: europe-west2
         https_trigger_security_level: secure_always
         secret_environment_variables: TOKEN=projects/splitwiser-356519/secrets/start-bot-token/versions/latest
         env_vars: PROJECT_ID=splitwiser-356519,TOPIC_ID=start-bot
