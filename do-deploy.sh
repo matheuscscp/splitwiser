@@ -14,7 +14,7 @@ gcloud functions deploy StartBot \
     --set-env-vars 'TOPIC_ID=start-bot'
 
 # create git tag for StartBot
-start_bot_version=$(gcloud functions describe StartBot --format json | jq .versionId -r)
+start_bot_version=$(gcloud functions describe StartBot --region europe-west2 --format json | jq .versionId -r)
 start_bot_git_tag="StartBot-v$start_bot_version"
 git tag $start_bot_git_tag
 
@@ -28,7 +28,7 @@ gcloud functions deploy Bot \
     --set-env-vars 'CONF_FILE=/etc/secrets/config/latest.yml'
 
 # create git tag for Bot
-bot_version=$(gcloud functions describe Bot --format json | jq .versionId -r)
+bot_version=$(gcloud functions describe Bot --region europe-west2 --format json | jq .versionId -r)
 bot_git_tag="Bot-v$bot_version"
 git tag $bot_git_tag
 
