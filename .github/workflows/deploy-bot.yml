@@ -3,7 +3,7 @@ concurrency: bot-concurrency-group
 
 on:
   push:
-    branches: [ main ]
+    branches: [ main2 ]
 
 jobs:
   deploy-bot:
