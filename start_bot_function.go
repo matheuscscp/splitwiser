@@ -6,10 +6,34 @@ import (
 	"os"
 
 	"cloud.google.com/go/pubsub"
+	"gopkg.in/yaml.v3"
 )
+
+type (
+	config struct {
+		Token     string `yaml:"token"`
+		ProjectID string `yaml:"projectID"`
+		TopicID   string `yaml:"topicID"`
+	}
+)
+
+func readConf() *config {
+	confFile := os.Getenv("CONF_FILE")
+	b, err := os.ReadFile(confFile)
+	if err != nil {
+		panic(fmt.Errorf("error reading config file '%s': %w", confFile, err))
+	}
+	var conf config
+	if err := yaml.Unmarshal(b, &conf); err != nil {
+		panic(fmt.Errorf("error unmarshaling config: %w", err))
+	}
+	return &conf
+}
 
 // StartBot is an HTTP Cloud Function.
 func StartBot(w http.ResponseWriter, r *http.Request) {
+	conf := readConf()
+
 	// handle get
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
@@ -33,7 +57,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		writeHTTP(w, fmt.Sprintf("error parsing form: %v", err))
 		return
 	}
-	if r.PostForm.Get("token") != os.Getenv("TOKEN") {
+	if r.PostForm.Get("token") != conf.Token {
 		w.WriteHeader(http.StatusUnauthorized)
 		writeHTTP(w, "invalid token")
 		return
@@ -41,7 +65,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 
 	// create pubsub client
 	ctx := r.Context()
-	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
+	client, err := pubsub.NewClient(ctx, conf.ProjectID)
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeHTTP(w, fmt.Sprintf("error creating pubsub client: %v", err))
@@ -51,7 +75,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 
 	// publish start msg
 	msg := &pubsub.Message{Data: []byte("start")}
-	if _, err := client.Topic(os.Getenv("TOPIC_ID")).Publish(ctx, msg).Get(ctx); err != nil {
+	if _, err := client.Topic(conf.TopicID).Publish(ctx, msg).Get(ctx); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
 		writeHTTP(w, fmt.Sprintf("error publishing start message: %v", err))
 		return

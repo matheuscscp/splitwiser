@@ -30,14 +30,16 @@ resource "google_cloudfunctions_function" "start-bot" {
   source_archive_bucket        = google_storage_bucket.functions-source-code.name
   source_archive_object        = google_storage_bucket_object.functions-source-code.name
   service_account_email        = google_service_account.start-bot.email
-  secret_environment_variables {
-    key     = "TOKEN"
-    secret  = "start-bot-token"
-    version = "latest"
+  secret_volumes {
+    mount_path = local.config_path
+    secret     = google_secret_manager_secret.start-bot-config.secret_id
+    versions {
+      path    = local.config_file
+      version = "latest"
+    }
   }
   environment_variables = {
-    PROJECT_ID = local.project
-    TOPIC_ID   = google_pubsub_topic.start-bot.name
+    CONF_FILE = local.config_file_path
   }
 }
 
@@ -45,4 +47,24 @@ resource "google_cloudfunctions_function_iam_member" "invoker" {
   cloud_function = google_cloudfunctions_function.start-bot.name
   role           = "roles/cloudfunctions.invoker"
   member         = "allUsers"
+}
+
+resource "google_secret_manager_secret" "start-bot-config" {
+  secret_id = "start-bot-config"
+  replication {
+    automatic = true
+  }
+}
+
+resource "google_secret_manager_secret_version" "start-bot-config" {
+  secret = google_secret_manager_secret.start-bot-config.id
+  secret_data = yamlencode({
+    "token" : data.google_secret_manager_secret_version.start-bot-token.secret_data,
+    "projectID" : local.project,
+    "topicID" : google_pubsub_topic.start-bot.name,
+  })
+}
+
+data "google_secret_manager_secret_version" "start-bot-token" {
+  secret = "start-bot-token"
 }
