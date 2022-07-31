@@ -93,6 +93,6 @@ resource "google_secret_manager_secret" "start-bot-jwt-secret" {
     name = google_pubsub_topic.rotate-jwt-secret.id
   }
   labels = {
-    "pubsub-topic-iam-membership-dependency" = google_pubsub_topic_iam_member.service-agent-identity-rotate-jwt-secret-publisher.etag
+    "pubsub-topic-iam-membership-dependency" = md5(google_pubsub_topic_iam_member.service-agent-identity-rotate-jwt-secret-publisher.etag)
   }
 }
