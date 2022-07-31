@@ -24,7 +24,9 @@ provider "google" {
 locals {
   project          = "splitwiser-356519"
   region           = "europe-west1" # Low CO₂
-  config_path      = "/etc/secrets/config/latest.yml"
+  config_path      = "/etc/secrets/config"
+  config_file      = "/latest.yml"
+  config_file_path = format("%s%s", local.config_path, local.config_file)
   storage_location = upper(local.region)
 }
 

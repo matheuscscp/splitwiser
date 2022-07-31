@@ -41,9 +41,13 @@ resource "google_cloudfunctions_function" "bot" {
   secret_volumes {
     mount_path = local.config_path
     secret     = "bot-config"
+    versions {
+      path    = local.config_file
+      version = "latest"
+    }
   }
   environment_variables = {
-    CONF_FILE = local.config_path
+    CONF_FILE = local.config_file_path
   }
 }
 
