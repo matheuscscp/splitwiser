@@ -3,7 +3,7 @@ locals {
 }
 
 resource "google_service_account" "rotate-jwt-secret" {
-  account_id   = "rotate-jwt-secret-cloud-function"
+  account_id   = "rotate-jwt-secret-cf"
   display_name = "Rotate JWT Secret Cloud Function"
 }
 
