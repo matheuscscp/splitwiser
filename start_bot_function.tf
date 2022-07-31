@@ -7,16 +7,22 @@ resource "google_service_account" "start-bot" {
   display_name = "StartBot Cloud Function"
 }
 
-resource "google_project_iam_member" "start-bot-secret-accessor" {
-  project = local.project
-  member  = "serviceAccount:${google_service_account.start-bot.email}"
-  role    = "roles/secretmanager.secretAccessor"
+resource "google_secret_manager_secret_iam_member" "start-bot-config-secret-accessor" {
+  secret_id = google_secret_manager_secret.start-bot-config.id
+  member    = "serviceAccount:${google_service_account.start-bot.email}"
+  role      = "roles/secretmanager.secretAccessor"
 }
 
-resource "google_project_iam_member" "start-bot-pubsub-publisher" {
-  project = local.project
-  member  = "serviceAccount:${google_service_account.start-bot.email}"
-  role    = "roles/pubsub.publisher"
+resource "google_secret_manager_secret_iam_member" "start-bot-jwt-secret-accessor" {
+  secret_id = google_secret_manager_secret.start-bot-jwt-secret.id
+  member    = "serviceAccount:${google_service_account.start-bot.email}"
+  role      = "roles/secretmanager.secretAccessor"
+}
+
+resource "google_pubsub_topic_iam_member" "start-bot-publisher" {
+  topic  = google_pubsub_topic.start-bot.name
+  member = "serviceAccount:${google_service_account.start-bot.email}"
+  role   = "roles/pubsub.publisher"
 }
 
 resource "google_cloudfunctions_function" "start-bot" {
@@ -37,6 +43,11 @@ resource "google_cloudfunctions_function" "start-bot" {
       path    = local.config_file
       version = "latest"
     }
+  }
+  secret_environment_variables {
+    key     = "JWT_SECRET"
+    secret  = google_secret_manager_secret.start-bot-jwt-secret.secret_id
+    version = "latest"
   }
   environment_variables = {
     CONF_FILE = local.config_file_path
@@ -67,4 +78,18 @@ resource "google_secret_manager_secret_version" "start-bot-config" {
 
 data "google_secret_manager_secret_version" "start-bot-token" {
   secret = "start-bot-token"
+}
+
+resource "google_secret_manager_secret" "start-bot-jwt-secret" {
+  secret_id = "start-bot-jwt-secret"
+  replication {
+    automatic = true
+  }
+  rotation {
+    rotation_period    = "7776000s" # 90d
+    next_rotation_time = timeadd(timestamp(), "1m")
+  }
+  topics {
+    name = google_pubsub_topic.rotate-jwt-secret.id
+  }
 }
