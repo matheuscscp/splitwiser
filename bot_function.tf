@@ -1,3 +1,7 @@
+locals {
+  bot_function_name = "Bot"
+}
+
 resource "google_service_account" "bot" {
   account_id   = "bot-cloud-function"
   display_name = "Bot Cloud Function"
@@ -15,8 +19,14 @@ resource "google_project_iam_member" "bot-object-admin" {
   role    = "roles/storage.objectAdmin"
 }
 
+resource "google_storage_bucket" "bot-checkpoint" {
+  name     = "splitwiser-checkpoint"
+  location = local.storage_location
+}
+
 resource "google_cloudfunctions_function" "bot" {
-  name                  = "Bot"
+  name                  = local.bot_function_name
+  entry_point           = local.bot_function_name
   description           = "The bot background function"
   runtime               = "go116"
   timeout               = 540
@@ -46,7 +56,7 @@ resource "google_cloudfunctions_function" "bot" {
 #   secret      = google_secret_manager_secret.bot-config.id
 #   secret_data = yamlencode({
 #     "telegram": {
-#       "token": 
 #     },
+#     "checkpointBucket": google_storage_bucket.bot-checkpoint.name,
 #   })
 # }

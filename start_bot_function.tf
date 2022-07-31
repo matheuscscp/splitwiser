@@ -1,3 +1,7 @@
+locals {
+  start_bot_function_name = "StartBot"
+}
+
 resource "google_service_account" "start-bot" {
   account_id   = "start-bot-cloud-function"
   display_name = "StartBot Cloud Function"
@@ -10,7 +14,8 @@ resource "google_project_iam_member" "start-bot-secret-accessor" {
 }
 
 resource "google_cloudfunctions_function" "start-bot" {
-  name                         = "StartBot"
+  name                         = local.start_bot_function_name
+  entry_point                  = local.start_bot_function_name
   description                  = "HTTPS function to trigger the bot via Cloud Pub/Sub"
   runtime                      = "go116"
   trigger_http                 = true

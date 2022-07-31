@@ -22,14 +22,15 @@ provider "google" {
 }
 
 locals {
-  project     = "splitwiser-356519"
-  region      = "europe-west1" # Low CO₂
-  config_path = "/etc/secrets/config/latest.yml"
+  project          = "splitwiser-356519"
+  region           = "europe-west1" # Low CO₂
+  config_path      = "/etc/secrets/config/latest.yml"
+  storage_location = upper(local.region)
 }
 
 resource "google_storage_bucket" "functions-source-code" {
-  location = upper(local.region)
   name     = "splitwiser-functions-source-code"
+  location = local.storage_location
 }
 
 data "archive_file" "source-code" {
