@@ -45,7 +45,7 @@ data "archive_file" "source-code" {
 }
 
 resource "google_storage_bucket_object" "functions-source-code" {
-  name   = data.archive_file.source-code.output_base64sha256
+  name   = data.archive_file.source-code.output_sha
   bucket = google_storage_bucket.functions-source-code.name
   source = data.archive_file.source-code.output_path
 }
