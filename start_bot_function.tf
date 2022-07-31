@@ -13,6 +13,12 @@ resource "google_project_iam_member" "start-bot-secret-accessor" {
   role    = "roles/secretmanager.secretAccessor"
 }
 
+resource "google_project_iam_member" "start-bot-pubsub-publisher" {
+  project = local.project
+  member  = "serviceAccount:${google_service_account.start-bot.email}"
+  role    = "roles/pubsub.publisher"
+}
+
 resource "google_cloudfunctions_function" "start-bot" {
   name                         = local.start_bot_function_name
   entry_point                  = local.start_bot_function_name
