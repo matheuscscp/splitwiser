@@ -63,6 +63,13 @@ resource "google_secret_manager_secret_version" "bot-config" {
   secret_data = yamlencode({
     "telegram" : {
       "token" : data.google_secret_manager_secret_version.bot-telegram-token.secret_data,
+      "chatID" : tonumber(data.google_secret_manager_secret_version.bot-telegram-chat-id.secret_data),
+    },
+    "splitwise" : {
+      "token" : data.google_secret_manager_secret_version.bot-splitwise-token.secret_data,
+      "groupID" : tonumber(data.google_secret_manager_secret_version.bot-splitwise-group-id.secret_data),
+      "anaID" : tonumber(data.google_secret_manager_secret_version.bot-splitwise-ana-id.secret_data),
+      "matheusID" : tonumber(data.google_secret_manager_secret_version.bot-splitwise-matheus-id.secret_data),
     },
     "checkpointBucket" : google_storage_bucket.bot-checkpoint.name,
   })
@@ -70,4 +77,24 @@ resource "google_secret_manager_secret_version" "bot-config" {
 
 data "google_secret_manager_secret_version" "bot-telegram-token" {
   secret = "bot-telegram-token"
+}
+
+data "google_secret_manager_secret_version" "bot-telegram-chat-id" {
+  secret = "bot-telegram-chat-id"
+}
+
+data "google_secret_manager_secret_version" "bot-splitwise-token" {
+  secret = "bot-splitwise-token"
+}
+
+data "google_secret_manager_secret_version" "bot-splitwise-group-id" {
+  secret = "bot-splitwise-group-id"
+}
+
+data "google_secret_manager_secret_version" "bot-splitwise-ana-id" {
+  secret = "bot-splitwise-ana-id"
+}
+
+data "google_secret_manager_secret_version" "bot-splitwise-matheus-id" {
+  secret = "bot-splitwise-matheus-id"
 }
