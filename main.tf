@@ -33,6 +33,9 @@ locals {
 resource "google_storage_bucket" "functions-source-code" {
   name     = "splitwiser-functions-source-code"
   location = local.storage_location
+  retention_policy {
+    retention_period = 60 * 60 * 24
+  }
 }
 
 data "archive_file" "source-code" {
@@ -42,7 +45,7 @@ data "archive_file" "source-code" {
 }
 
 resource "google_storage_bucket_object" "functions-source-code" {
-  name   = "source.zip"
+  name   = data.archive_file.source-code.output_base64sha256
   bucket = google_storage_bucket.functions-source-code.name
   source = data.archive_file.source-code.output_path
 }
