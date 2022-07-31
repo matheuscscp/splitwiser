@@ -28,7 +28,7 @@ locals {
 
 resource "google_storage_bucket" "functions-source-code" {
   location = upper(local.region)
-  name     = "functions-source-code"
+  name     = "splitwiser-functions-source-code"
 }
 
 data "archive_file" "source-code" {
