@@ -26,10 +26,6 @@ locals {
   region  = "europe-west1" # Low CO₂
 }
 
-resource "google_pubsub_topic" "start-bot" {
-  name = "start-bot"
-}
-
 resource "google_storage_bucket" "functions-source-code" {
   location = upper(local.region)
   name     = "functions-source-code"
@@ -45,4 +41,8 @@ resource "google_storage_bucket_object" "functions-source-code" {
   name   = "source.zip"
   bucket = google_storage_bucket.functions-source-code.name
   source = data.archive_file.source-code.output_path
+}
+
+resource "google_pubsub_topic" "start-bot" {
+  name = "start-bot"
 }
