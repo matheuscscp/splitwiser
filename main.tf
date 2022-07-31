@@ -34,7 +34,7 @@ resource "google_storage_bucket" "functions-source-code" {
 data "archive_file" "source-code" {
   type        = "zip"
   source_dir  = "./"
-  output_path = "/tmp/source.zip"
+  output_path = "./source.zip"
 }
 
 resource "google_storage_bucket_object" "functions-source-code" {
