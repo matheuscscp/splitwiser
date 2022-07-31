@@ -57,6 +57,8 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		writeHTTP(w, fmt.Sprintf("error parsing form: %v", err))
 		return
 	}
+	fmt.Printf("%+v\n", conf)
+	fmt.Printf(`form-token="%s"`, r.PostForm.Get("token"))
 	if r.PostForm.Get("token") != conf.Token {
 		w.WriteHeader(http.StatusUnauthorized)
 		writeHTTP(w, "invalid token")
