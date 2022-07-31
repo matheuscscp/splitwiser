@@ -40,7 +40,7 @@ resource "google_cloudfunctions_function" "bot" {
   }
   secret_volumes {
     mount_path = local.config_path
-    secret     = "bot-config"
+    secret     = google_secret_manager_secret.bot-config.secret_id
     versions {
       path    = local.config_file
       version = "latest"
@@ -51,16 +51,23 @@ resource "google_cloudfunctions_function" "bot" {
   }
 }
 
-# resource "google_secret_manager_secret" "bot-config" {
-#   secret_id = "bot-config"
-#   replication {}
-# }
+resource "google_secret_manager_secret" "bot-config" {
+  secret_id = "bot-config"
+  replication {
+    automatic = true
+  }
+}
 
-# resource "google_secret_manager_secret_version" "bot-config" {
-#   secret      = google_secret_manager_secret.bot-config.id
-#   secret_data = yamlencode({
-#     "telegram": {
-#     },
-#     "checkpointBucket": google_storage_bucket.bot-checkpoint.name,
-#   })
-# }
+resource "google_secret_manager_secret_version" "bot-config" {
+  secret = google_secret_manager_secret.bot-config.id
+  secret_data = yamlencode({
+    "telegram" : {
+      "token" : data.google_secret_manager_secret_version.bot-telegram-token.secret_data,
+    },
+    "checkpointBucket" : google_storage_bucket.bot-checkpoint.name,
+  })
+}
+
+data "google_secret_manager_secret_version" "bot-telegram-token" {
+  secret = "bot-telegram-token"
+}
