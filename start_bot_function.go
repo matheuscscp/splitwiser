@@ -96,7 +96,7 @@ func (c *controller) handleRequest() {
 			return
 		}
 	} else if err := c.checkAuthentication(); err != nil {
-		logrus.Warnf("invalid authentication: %w", err)
+		logrus.Warnf("invalid authentication: %v", err)
 		c.replyStatusCode(http.StatusUnauthorized)
 		return
 	}
@@ -226,7 +226,7 @@ func (c *controller) sendNewJWT() {
 	})
 	tokenString, err := token.SignedString(c.JWTSecret)
 	if err != nil {
-		logrus.Errorf("error signing jwt token: %w", err)
+		logrus.Errorf("error signing jwt token: %v", err)
 		tokenString = "null"
 	} else {
 		tokenString = fmt.Sprintf(`"%s"`, tokenString)
