@@ -87,7 +87,7 @@ resource "google_secret_manager_secret" "start-bot-jwt-secret" {
   }
   rotation {
     rotation_period    = "7776000s" # 90d
-    next_rotation_time = timeadd(timestamp(), "1m")
+    next_rotation_time = timeadd(timestamp(), "6m")
   }
   topics {
     name = google_pubsub_topic.rotate-jwt-secret.id
