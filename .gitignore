@@ -1,5 +1,3 @@
 cmd/dev/dev
 cmd/dev/config.yml
 cmd/dev/gcloud.json
-deploy-logs.txt
-.terraform*
