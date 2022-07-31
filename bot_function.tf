@@ -7,16 +7,16 @@ resource "google_service_account" "bot" {
   display_name = "Bot Cloud Function"
 }
 
-resource "google_project_iam_member" "bot-secret-accessor" {
-  project = local.project
-  member  = "serviceAccount:${google_service_account.bot.email}"
-  role    = "roles/secretmanager.secretAccessor"
+resource "google_secret_manager_secret_iam_member" "bot-config-secret-accessor" {
+  secret_id = google_secret_manager_secret.bot-config.id
+  member    = "serviceAccount:${google_service_account.bot.email}"
+  role      = "roles/secretmanager.secretAccessor"
 }
 
-resource "google_project_iam_member" "bot-object-admin" {
-  project = local.project
-  member  = "serviceAccount:${google_service_account.bot.email}"
-  role    = "roles/storage.objectAdmin"
+resource "google_storage_bucket_iam_member" "bot-checkpoint-object-admin" {
+  bucket = google_storage_bucket.bot-checkpoint.name
+  member = "serviceAccount:${google_service_account.bot.email}"
+  role   = "roles/storage.objectAdmin"
 }
 
 resource "google_storage_bucket" "bot-checkpoint" {

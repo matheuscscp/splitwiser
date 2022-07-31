@@ -50,3 +50,7 @@ resource "google_storage_bucket_object" "functions-source-code" {
 resource "google_pubsub_topic" "start-bot" {
   name = "start-bot"
 }
+
+resource "google_pubsub_topic" "rotate-jwt-secret" {
+  name = "rotate-jwt-secret"
+}
