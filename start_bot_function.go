@@ -13,7 +13,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	// handle get
 	if r.Method == http.MethodGet {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Write([]byte(`<!DOCTYPE html>
+		writeHTTP(w, `<!DOCTYPE html>
 <html>
 	<body>
 		<form action="/StartBot" method="post">
@@ -23,19 +23,19 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 		</form>
 	</body>
 </html>
-`))
+`)
 		return
 	}
 
 	// read token and validate
 	if err := r.ParseForm(); err != nil {
 		w.WriteHeader(http.StatusBadRequest)
-		w.Write([]byte(fmt.Sprintf("error parsing form: %v", err)))
+		writeHTTP(w, fmt.Sprintf("error parsing form: %v", err))
 		return
 	}
 	if r.PostForm.Get("token") != os.Getenv("TOKEN") {
 		w.WriteHeader(http.StatusUnauthorized)
-		w.Write([]byte("invalid token"))
+		writeHTTP(w, "invalid token")
 		return
 	}
 
@@ -44,7 +44,7 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	client, err := pubsub.NewClient(ctx, os.Getenv("PROJECT_ID"))
 	if err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("error creating pubsub client: %v", err)))
+		writeHTTP(w, fmt.Sprintf("error creating pubsub client: %v", err))
 		return
 	}
 	defer client.Close()
@@ -53,9 +53,15 @@ func StartBot(w http.ResponseWriter, r *http.Request) {
 	msg := &pubsub.Message{Data: []byte("start")}
 	if _, err := client.Topic(os.Getenv("TOPIC_ID")).Publish(ctx, msg).Get(ctx); err != nil {
 		w.WriteHeader(http.StatusInternalServerError)
-		w.Write([]byte(fmt.Sprintf("error publishing start message: %v", err)))
+		writeHTTP(w, fmt.Sprintf("error publishing start message: %v", err))
 		return
 	}
 
-	w.Write([]byte("done"))
+	writeHTTP(w, "done")
+}
+
+func writeHTTP(w http.ResponseWriter, resp string) {
+	if _, err := w.Write([]byte(resp)); err != nil {
+		panic(err)
+	}
 }
