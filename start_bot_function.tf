@@ -70,14 +70,14 @@ resource "google_secret_manager_secret" "start-bot-config" {
 resource "google_secret_manager_secret_version" "start-bot-config" {
   secret = google_secret_manager_secret.start-bot-config.id
   secret_data = yamlencode({
-    "token" : data.google_secret_manager_secret_version.start-bot-token.secret_data,
+    "password" : data.google_secret_manager_secret_version.start-bot-password.secret_data,
     "projectID" : local.project,
     "topicID" : google_pubsub_topic.start-bot.name,
   })
 }
 
-data "google_secret_manager_secret_version" "start-bot-token" {
-  secret = "start-bot-token"
+data "google_secret_manager_secret_version" "start-bot-password" {
+  secret = "start-bot-password"
 }
 
 resource "google_secret_manager_secret" "start-bot-jwt-secret" {

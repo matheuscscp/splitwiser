@@ -8,7 +8,7 @@ resource "google_service_account" "bot" {
 }
 
 resource "google_secret_manager_secret_iam_member" "bot-config-secret-accessor" {
-  secret_id = google_secret_manager_secret.bot-config.secret_id
+  secret_id = google_secret_manager_secret.bot-config.id
   member    = "serviceAccount:${google_service_account.bot.email}"
   role      = "roles/secretmanager.secretAccessor"
 }
