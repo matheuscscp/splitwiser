@@ -3,7 +3,7 @@ package splitwiser
 import (
 	"net/http"
 
-	"github.com/matheuscscp/splitwiser/startbot"
+	"github.com/matheuscscp/splitwiser/internal/startbot"
 )
 
 // StartBot is an HTTP Cloud Function.

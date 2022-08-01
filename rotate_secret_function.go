@@ -3,8 +3,8 @@ package splitwiser
 import (
 	"context"
 
+	"github.com/matheuscscp/splitwiser/internal/rotatesecret"
 	_ "github.com/matheuscscp/splitwiser/logging"
-	"github.com/matheuscscp/splitwiser/rotatesecret"
 
 	"github.com/sirupsen/logrus"
 )

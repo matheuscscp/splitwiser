@@ -3,7 +3,7 @@ package splitwiser
 import (
 	"context"
 
-	"github.com/matheuscscp/splitwiser/bot"
+	"github.com/matheuscscp/splitwiser/internal/bot"
 )
 
 // Bot is a Pub/Sub Cloud Function.
