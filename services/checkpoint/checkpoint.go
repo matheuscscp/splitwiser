@@ -12,9 +12,9 @@ import (
 type (
 	// Service ...
 	Service interface {
-		Store(v interface{}) error
-		Load(v interface{}) error
-		Delete() error
+		Store(ctx context.Context, v interface{}) error
+		Load(ctx context.Context, v interface{}) error
+		Delete(ctx context.Context) error
 		Close()
 	}
 
@@ -30,8 +30,8 @@ var (
 )
 
 // NewService ...
-func NewService(bucket string) (Service, error) {
-	client, err := storage.NewClient(context.Background())
+func NewService(ctx context.Context, bucket string) (Service, error) {
+	client, err := storage.NewClient(ctx)
 	if err != nil {
 		return nil, fmt.Errorf("error creating cloud storage client: %w", err)
 	}
@@ -45,8 +45,8 @@ func (s *service) Close() {
 	s.close()
 }
 
-func (s *service) Store(v interface{}) error {
-	w := s.client.NewWriter(context.Background())
+func (s *service) Store(ctx context.Context, v interface{}) error {
+	w := s.client.NewWriter(ctx)
 	defer w.Close()
 
 	encoder := yaml.NewEncoder(w)
@@ -58,8 +58,8 @@ func (s *service) Store(v interface{}) error {
 	return nil
 }
 
-func (s *service) Load(v interface{}) error {
-	r, err := s.client.NewReader(context.Background())
+func (s *service) Load(ctx context.Context, v interface{}) error {
+	r, err := s.client.NewReader(ctx)
 	if err != nil {
 		if errors.Is(err, storage.ErrObjectNotExist) {
 			return ErrCheckpointNotExist
@@ -75,6 +75,6 @@ func (s *service) Load(v interface{}) error {
 	return nil
 }
 
-func (s *service) Delete() error {
-	return s.client.Delete(context.Background())
+func (s *service) Delete(ctx context.Context) error {
+	return s.client.Delete(ctx)
 }

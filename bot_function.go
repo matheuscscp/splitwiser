@@ -8,5 +8,5 @@ import (
 
 // Bot is a Pub/Sub Cloud Function.
 func Bot(ctx context.Context, m PubSubMessage) error {
-	return bot.Run()
+	return bot.Run(ctx)
 }

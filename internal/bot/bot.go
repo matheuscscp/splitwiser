@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"regexp"
@@ -137,7 +138,7 @@ Please choose the payer:
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run() error {
+func Run(ctx context.Context) error {
 	startTime := time.Now()
 
 	conf, err := config.Load()
@@ -152,7 +153,7 @@ func Run() error {
 
 	splitwiseClient := splitwise.NewClient(&conf.Splitwise)
 
-	checkpointService, err := checkpoint.NewService(conf.CheckpointBucket)
+	checkpointService, err := checkpoint.NewService(ctx, conf.CheckpointBucket)
 	if err != nil {
 		return fmt.Errorf("error creating checkpoint service: %w", err)
 	}
@@ -197,7 +198,7 @@ func Run() error {
 
 	// load checkpoint
 	bot.enqueue("Hi.")
-	if err := checkpointService.Load(&receipt); err != nil {
+	if err := checkpointService.Load(ctx, &receipt); err != nil {
 		if !errors.Is(err, checkpoint.ErrCheckpointNotExist) {
 			bot.enqueue("I had an unexpected error loading the checkpoint: %v", err)
 		}
@@ -218,13 +219,13 @@ func Run() error {
 	}
 
 	storeCheckpoint := func() {
-		if err := checkpointService.Store(receipt); err != nil {
+		if err := checkpointService.Store(ctx, receipt); err != nil {
 			bot.enqueue("I had an unexpected error storing the checkpoint: %v", err)
 		}
 	}
 
 	resetState := func() {
-		if err := checkpointService.Delete(); err != nil {
+		if err := checkpointService.Delete(ctx); err != nil {
 			bot.enqueue("I had an unexpected error deleting the checkpoint: %v", err)
 		} else {
 			bot.enqueue("Checkpoint deleted.")
