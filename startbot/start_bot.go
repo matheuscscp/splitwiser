@@ -230,7 +230,7 @@ func (c *controller) sendSinglePageApp() {
 
 func (c *controller) sendNewJWT() {
 	token := jwt.NewWithClaims(jwtSigningMethod, jwt.MapClaims{
-		"exp": time.Now().Add(30 * 24 * time.Hour),
+		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
 	tokenString, err := token.SignedString(c.JWTSecret)
 	if err != nil {
@@ -261,7 +261,7 @@ func (c *controller) checkAuthentication() error {
 		return c.JWTSecret, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error parsing jwt token: %w", err)
+		return fmt.Errorf("error parsing jwt token: %w %+v", err, token)
 	}
 	if !token.Valid {
 		return errInvalidToken
