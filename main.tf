@@ -4,7 +4,11 @@ terraform {
   required_providers {
     google = {
       source  = "hashicorp/google"
-      version = "4.30.0"
+      version = "4.31.0"
+    }
+    google-beta = {
+      source  = "hashicorp/google"
+      version = "4.31.0"
     }
   }
 
@@ -21,13 +25,18 @@ provider "google" {
   project = local.project
 }
 
+provider "google-beta" {
+  region  = local.region
+  project = local.project
+}
+
 locals {
   region         = "europe-west1" # Low CO₂
   project        = "splitwiser-telegram-bot"
-  project_number = data.google_project.splitwiser.number
+  project_number = data.google_project.splitwiser-telegram-bot.number
 }
 
-data "google_project" "splitwiser" {
+data "google_project" "splitwiser-telegram-bot" {
 }
 
 module "infrastructure" {

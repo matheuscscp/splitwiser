@@ -43,8 +43,14 @@ resource "google_pubsub_topic" "rotate-secret" {
   name = "rotate-secret"
 }
 
+resource "google_project_service_identity" "secretmanager-service-account" {
+  provider = google-beta
+  project  = var.project
+  service  = "secretmanager.googleapis.com"
+}
+
 resource "google_pubsub_topic_iam_member" "service-agent-rotate-secret-publisher" {
   topic  = google_pubsub_topic.rotate-secret.name
-  member = "serviceAccount:service-${var.project_number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
+  member = "serviceAccount:${google_project_service_identity.secretmanager-service-account.email}"
   role   = "roles/pubsub.publisher"
 }
