@@ -2,13 +2,11 @@ package splitwiser
 
 import (
 	"context"
-	"crypto/rand"
-	"encoding/base64"
 	"fmt"
 	"hash/crc32"
-	"io"
 
 	_ "github.com/matheuscscp/splitwiser/logging"
+	"github.com/matheuscscp/splitwiser/secrets"
 
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/sirupsen/logrus"
@@ -40,16 +38,10 @@ func RotateSecret(ctx context.Context, m PubSubMessage) error {
 	}
 
 	// generate secret and crc32 checksum
-	const secretSize = 256
-	var buf [secretSize]byte
-	n, err := io.ReadFull(rand.Reader, buf[:])
+	secret, err := secrets.Generate()
 	if err != nil {
-		return fmt.Errorf("error reading bytes from crypto/rand: %w", err)
+		return fmt.Errorf("error generating secret: %w", err)
 	}
-	if n != secretSize {
-		return fmt.Errorf("unexpected number of bytes read from crypto/rand, want %d, got %d", secretSize, n)
-	}
-	secret := base64.StdEncoding.EncodeToString(buf[:])
 	secretPayload := []byte(secret)
 	checksum := int64(crc32.Checksum(secretPayload, crc32.MakeTable(crc32.Castagnoli)))
 
