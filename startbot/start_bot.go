@@ -10,10 +10,10 @@ import (
 	"strings"
 	"time"
 
+	"github.com/matheuscscp/splitwiser/events"
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/secrets"
 
-	"cloud.google.com/go/pubsub"
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
 	"gopkg.in/yaml.v3"
@@ -25,13 +25,14 @@ type (
 		ProjectID   string `yaml:"projectID"`
 		TopicID     string `yaml:"topicID"`
 		JWTSecretID string `yaml:"jwtSecretID"`
+		jwtSecret   []byte `yaml:"-"`
 	}
 
 	controller struct {
-		conf      *config
-		jwtSecret []byte
-		w         http.ResponseWriter
-		r         *http.Request
+		conf          *config
+		w             http.ResponseWriter
+		r             *http.Request
+		eventsService events.Service
 	}
 )
 
@@ -50,10 +51,10 @@ var (
 
 // Run serves the start-bot website.
 func Run(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 	conf := readConfig()
 
-	// create secrets client
-	ctx := r.Context()
+	// create secrets service
 	secretsService, err := secrets.NewService(ctx)
 	if err != nil {
 		logrus.Fatalf("error creating secrets service: %v", err)
@@ -61,19 +62,26 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	defer secretsService.Close()
 
 	// read jwt secret
-	jwtSecret, err := secretsService.Read(ctx, conf.JWTSecretID)
+	conf.jwtSecret, err = secretsService.Read(ctx, conf.JWTSecretID)
 	if err != nil {
 		logrus.Fatalf("error reading jwt secret: %v", err)
 	}
 	h := sha256.New()
-	h.Write(jwtSecret)
+	h.Write(conf.jwtSecret)
 	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
 
+	// create events service
+	eventsService, err := events.NewService(ctx, conf.ProjectID)
+	if err != nil {
+		logrus.Fatalf("error creating events service: %v", err)
+	}
+	defer eventsService.Close()
+
 	(&controller{
-		conf:      conf,
-		jwtSecret: jwtSecret,
-		w:         w,
-		r:         r,
+		conf:          conf,
+		w:             w,
+		r:             r,
+		eventsService: eventsService,
 	}).handleRequest()
 }
 
@@ -246,7 +254,7 @@ func (c *controller) sendNewJWT() {
 	token := jwt.NewWithClaims(jwtSigningMethod, jwt.MapClaims{
 		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
-	tokenString, err := token.SignedString(c.jwtSecret)
+	tokenString, err := token.SignedString(c.conf.jwtSecret)
 	if err != nil {
 		logrus.Errorf("error signing jwt token: %v", err)
 		tokenString = "null"
@@ -272,7 +280,7 @@ func (c *controller) checkAuthentication() error {
 		if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok || method != jwtSigningMethod {
 			return nil, fmt.Errorf("invalid signing method: %v", token.Header["alg"])
 		}
-		return c.jwtSecret, nil
+		return c.conf.jwtSecret, nil
 	})
 	if err != nil {
 		return fmt.Errorf("error parsing jwt token: %w", err)
@@ -297,20 +305,15 @@ func (c *controller) checkPassword() error {
 }
 
 func (c *controller) startBot() error {
-	if c.conf.ProjectID == "" || c.conf.TopicID == "" {
-		logrus.Error("cannot publish start-bot event, no project/topic configured")
-		return nil
-	}
-	ctx := c.r.Context()
-	client, err := pubsub.NewClient(ctx, c.conf.ProjectID)
+	serverID, err := c.eventsService.Publish(c.r.Context(), c.conf.TopicID, []byte("start"))
 	if err != nil {
-		return fmt.Errorf("error creating pubsub client: %v", err)
+		if errors.Is(err, events.ErrServiceNotConfigured) {
+			logrus.Error("cannot publish start-bot event, events service is not configured")
+			return nil
+		}
+		return fmt.Errorf("error publishing start-bot event")
 	}
-	defer client.Close()
-	msg := &pubsub.Message{Data: []byte("start")}
-	if _, err := client.Topic(c.conf.TopicID).Publish(ctx, msg).Get(ctx); err != nil {
-		return fmt.Errorf("error publishing start message: %v", err)
-	}
+	logrus.Infof("start-bot event published with serverID=%s", serverID)
 	return nil
 }
 

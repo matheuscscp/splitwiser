@@ -16,7 +16,7 @@ type (
 	Client interface {
 		// CreateExpense creates an expense on the Splitwise API and
 		// returns a message for the bot to send back as result.
-		CreateExpense(expense *models.Expense, storeName string) string
+		CreateExpense(expense *models.Expense, storeName string) (msg string)
 	}
 
 	client struct {
