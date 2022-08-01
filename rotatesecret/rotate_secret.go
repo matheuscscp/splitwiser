@@ -4,7 +4,7 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/matheuscscp/splitwiser/secrets"
+	"github.com/matheuscscp/splitwiser/services/secrets"
 )
 
 // Run rotates the given secret.

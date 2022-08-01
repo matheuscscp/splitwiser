@@ -10,9 +10,9 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matheuscscp/splitwiser/events"
 	_ "github.com/matheuscscp/splitwiser/logging"
-	"github.com/matheuscscp/splitwiser/secrets"
+	"github.com/matheuscscp/splitwiser/services/events"
+	"github.com/matheuscscp/splitwiser/services/secrets"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
