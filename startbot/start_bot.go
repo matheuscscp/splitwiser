@@ -61,7 +61,7 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	defer secretsService.Close()
 
 	// read jwt secret
-	jwtSecret, err := secretsService.ReadBinary(ctx, conf.JWTSecretID)
+	jwtSecret, err := secretsService.Read(ctx, conf.JWTSecretID)
 	if err != nil {
 		logrus.Fatalf("error reading jwt secret: %v", err)
 	}
