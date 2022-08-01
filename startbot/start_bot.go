@@ -2,7 +2,6 @@ package startbot
 
 import (
 	"crypto/sha256"
-	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -12,6 +11,7 @@ import (
 	"time"
 
 	_ "github.com/matheuscscp/splitwiser/logging"
+	"github.com/matheuscscp/splitwiser/secrets"
 
 	"cloud.google.com/go/pubsub"
 	jwt "github.com/golang-jwt/jwt/v4"
@@ -21,24 +21,21 @@ import (
 
 type (
 	config struct {
-		Password  string `yaml:"password"`
-		ProjectID string `yaml:"projectID"`
-		TopicID   string `yaml:"topicID"`
-		JWTSecret []byte `yaml:"-"`
+		Password    string `yaml:"password"`
+		ProjectID   string `yaml:"projectID"`
+		TopicID     string `yaml:"topicID"`
+		JWTSecretID string `yaml:"jwtSecretID"`
 	}
 
 	controller struct {
-		*config
-
-		w http.ResponseWriter
-		r *http.Request
+		conf      *config
+		jwtSecret []byte
+		w         http.ResponseWriter
+		r         *http.Request
 	}
 )
 
 const (
-	// JWTSecretEnv ...
-	JWTSecretEnv = "JWT_SECRET"
-
 	httpHeaderAuthorization = "Authorization"
 	httpHeaderContentType   = "Content-Type"
 )
@@ -53,10 +50,36 @@ var (
 
 // Run serves the start-bot website.
 func Run(w http.ResponseWriter, r *http.Request) {
+	conf := readConfig()
+
+	// create secrets client
+	var secretsService secrets.Service
+	ctx := r.Context()
+	if svc := secrets.ServiceFromContext(ctx); svc != nil {
+		secretsService = svc
+	} else {
+		svc, err := secrets.NewService(ctx)
+		if err != nil {
+			logrus.Fatalf("error creating secrets service: %v", err)
+		}
+		secretsService = svc
+	}
+	defer secretsService.Close()
+
+	// read jwt secret
+	jwtSecret, err := secretsService.ReadBinary(ctx, conf.JWTSecretID)
+	if err != nil {
+		logrus.Fatalf("error reading jwt secret: %v", err)
+	}
+	h := sha256.New()
+	h.Write(jwtSecret)
+	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
+
 	(&controller{
-		config: readConfig(),
-		w:      w,
-		r:      r,
+		conf:      conf,
+		jwtSecret: jwtSecret,
+		w:         w,
+		r:         r,
 	}).handleRequest()
 }
 
@@ -73,13 +96,6 @@ func readConfig() *config {
 	if err := yaml.Unmarshal(b, &conf); err != nil {
 		logrus.Fatalf("error unmarshaling config: %v", err)
 	}
-	conf.JWTSecret, err = base64.StdEncoding.DecodeString(os.Getenv(JWTSecretEnv))
-	if err != nil {
-		logrus.Fatalf("error decoding jwt secret: %v", err)
-	}
-	h := sha256.New()
-	h.Write(conf.JWTSecret)
-	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
 	return &conf
 }
 
@@ -236,7 +252,7 @@ func (c *controller) sendNewJWT() {
 	token := jwt.NewWithClaims(jwtSigningMethod, jwt.MapClaims{
 		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
-	tokenString, err := token.SignedString(c.JWTSecret)
+	tokenString, err := token.SignedString(c.jwtSecret)
 	if err != nil {
 		logrus.Errorf("error signing jwt token: %v", err)
 		tokenString = "null"
@@ -262,7 +278,7 @@ func (c *controller) checkAuthentication() error {
 		if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok || method != jwtSigningMethod {
 			return nil, fmt.Errorf("invalid signing method: %v", token.Header["alg"])
 		}
-		return c.JWTSecret, nil
+		return c.jwtSecret, nil
 	})
 	if err != nil {
 		return fmt.Errorf("error parsing jwt token: %w", err)
@@ -280,25 +296,25 @@ func (c *controller) checkPassword() error {
 	if err := json.NewDecoder(c.r.Body).Decode(&payload); err != nil {
 		return fmt.Errorf("error unmarshaling payload: %w", err)
 	}
-	if payload.Password != c.Password {
+	if payload.Password != c.conf.Password {
 		return errWrongPassword
 	}
 	return nil
 }
 
 func (c *controller) startBot() error {
-	if c.ProjectID == "" || c.TopicID == "" {
-		logrus.Error("no project/topic configured")
+	if c.conf.ProjectID == "" || c.conf.TopicID == "" {
+		logrus.Error("cannot start bot, no project/topic configured")
 		return nil
 	}
 	ctx := c.r.Context()
-	client, err := pubsub.NewClient(ctx, c.ProjectID)
+	client, err := pubsub.NewClient(ctx, c.conf.ProjectID)
 	if err != nil {
 		return fmt.Errorf("error creating pubsub client: %v", err)
 	}
 	defer client.Close()
 	msg := &pubsub.Message{Data: []byte("start")}
-	if _, err := client.Topic(c.TopicID).Publish(ctx, msg).Get(ctx); err != nil {
+	if _, err := client.Topic(c.conf.TopicID).Publish(ctx, msg).Get(ctx); err != nil {
 		return fmt.Errorf("error publishing start message: %v", err)
 	}
 	return nil

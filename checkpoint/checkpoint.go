@@ -41,12 +41,10 @@ func NewService(bucket string) (Service, error) {
 	}, nil
 }
 
-// Close ...
 func (s *service) Close() {
 	s.close()
 }
 
-// Store ...
 func (s *service) Store(v interface{}) error {
 	w := s.client.NewWriter(context.Background())
 	defer w.Close()
@@ -60,7 +58,6 @@ func (s *service) Store(v interface{}) error {
 	return nil
 }
 
-// Load ...
 func (s *service) Load(v interface{}) error {
 	r, err := s.client.NewReader(context.Background())
 	if err != nil {
@@ -78,7 +75,6 @@ func (s *service) Load(v interface{}) error {
 	return nil
 }
 
-// Delete ...
 func (s *service) Delete() error {
 	return s.client.Delete(context.Background())
 }
