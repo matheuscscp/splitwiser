@@ -28,10 +28,14 @@ locals {
   config_file      = "/latest.yml"
   config_file_path = format("%s%s", local.config_path, local.config_file)
   storage_location = upper(local.region)
+  project_number   = data.google_project.splitwiser.number
+}
+
+data "google_project" "splitwiser" {
 }
 
 resource "google_storage_bucket" "functions-source-code" {
-  name     = "splitwiser-functions-source-code"
+  name     = "splitwiser-source-code-${local.project_number}"
   location = local.storage_location
 }
 
@@ -53,4 +57,10 @@ resource "google_pubsub_topic" "start-bot" {
 
 resource "google_pubsub_topic" "rotate-secret" {
   name = "rotate-secret"
+}
+
+resource "google_pubsub_topic_iam_member" "service-agent-rotate-secret-publisher" {
+  topic  = google_pubsub_topic.rotate-secret.name
+  member = "serviceAccount:service-${local.project_number}@gcp-sa-secretmanager.iam.gserviceaccount.com"
+  role   = "roles/pubsub.publisher"
 }

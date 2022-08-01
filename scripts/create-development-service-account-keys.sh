@@ -2,7 +2,7 @@
 
 set -e
 
-declare -A functions=(["bot-dev"]="bot" ["start-bot-dev"]="startbot")
+declare -A functions=(["bot-dev"]="bot" ["start-bot-dev"]="startbot" ["rotate-secret-dev"]="rotatesecret")
 
 for service_account in "${!functions[@]}"; do
     email=$(gcloud iam service-accounts list --format=json | jq '.[].email' -r | grep -P "^$service_account@")

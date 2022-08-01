@@ -13,12 +13,6 @@ resource "google_project_iam_member" "rotate-secret-version-manager" {
   role    = "roles/secretmanager.secretVersionManager"
 }
 
-resource "google_pubsub_topic_iam_member" "service-agent-rotate-secret-publisher" {
-  topic  = google_pubsub_topic.rotate-secret.name
-  member = "serviceAccount:service-281540018258@gcp-sa-secretmanager.iam.gserviceaccount.com"
-  role   = "roles/pubsub.publisher"
-}
-
 resource "google_cloudfunctions_function" "rotate-secret" {
   name                  = local.rotate_secret_function_name
   entry_point           = local.rotate_secret_function_name
