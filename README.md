@@ -16,7 +16,7 @@ A Telegram bot to help me parse my shared receipts and put the totals on https:/
 8. Configure the Terraform Cloud workspace with a VCS workflow connecting to your (fork) git repository.
 9. Add a secret environment variable `GOOGLE_CREDENTIALS` with the minified JSON of the generated key file to the Terraform Cloud workspace.
 10. Create all the manually-managed secrets in Google Cloud (the ones accessed in Terraform via the `google_secret_manager_secret_version` data source).
-11. Run `scripts/enable-bootstrap-googleapis.sh` to enable the minimum Google Cloud APIs necessary for a Terraform Plan.
+11. Run `scripts/enable-googleapis.sh` to enable the necessary Google Cloud APIs.
 12. Open a pull request setting the new project ID, region and other options in `main.tf`.
 13. Check out the Speculative Plan triggered by Terraform Cloud, it should be sent to you via email.
 14. Merge and checkout the Terraform Plan and Apply triggered by Terraform Cloud.

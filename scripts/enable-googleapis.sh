@@ -3,6 +3,7 @@
 set -e
 
 gcloud services enable cloudresourcemanager.googleapis.com
+gcloud services enable iam.googleapis.com
 gcloud services enable secretmanager.googleapis.com
 gcloud services enable storage-api.googleapis.com
 gcloud services enable pubsub.googleapis.com
