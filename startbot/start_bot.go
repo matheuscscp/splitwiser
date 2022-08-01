@@ -53,16 +53,10 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	conf := readConfig()
 
 	// create secrets client
-	var secretsService secrets.Service
 	ctx := r.Context()
-	if svc := secrets.ServiceFromContext(ctx); svc != nil {
-		secretsService = svc
-	} else {
-		svc, err := secrets.NewService(ctx)
-		if err != nil {
-			logrus.Fatalf("error creating secrets service: %v", err)
-		}
-		secretsService = svc
+	secretsService, err := secrets.NewService(ctx)
+	if err != nil {
+		logrus.Fatalf("error creating secrets service: %v", err)
 	}
 	defer secretsService.Close()
 
@@ -304,7 +298,7 @@ func (c *controller) checkPassword() error {
 
 func (c *controller) startBot() error {
 	if c.conf.ProjectID == "" || c.conf.TopicID == "" {
-		logrus.Error("cannot start bot, no project/topic configured")
+		logrus.Error("cannot publish start-bot event, no project/topic configured")
 		return nil
 	}
 	ctx := c.r.Context()
