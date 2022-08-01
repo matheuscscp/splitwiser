@@ -18,7 +18,7 @@ import (
 // RotateSecret is a Pub/Sub Cloud Function.
 func RotateSecret(ctx context.Context, m PubSubMessage) error {
 	if m.Attributes.EventType != "SECRET_ROTATE" {
-		logrus.Infof("event type for secret '%s' is not secret rotation: %s", m.Attributes.SecretId, m.Attributes.EventType)
+		logrus.Infof("event type for secret '%s' is not rotation: %s", m.Attributes.SecretId, m.Attributes.EventType)
 		return nil
 	}
 
