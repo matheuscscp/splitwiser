@@ -10,6 +10,8 @@ import (
 	"io"
 	"strconv"
 
+	_ "github.com/matheuscscp/splitwiser/logging"
+
 	secretmanager "cloud.google.com/go/secretmanager/apiv1"
 	"github.com/sirupsen/logrus"
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
