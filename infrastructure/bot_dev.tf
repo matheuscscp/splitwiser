@@ -10,6 +10,6 @@ resource "google_storage_bucket_iam_member" "bot-checkpoint-dev-object-admin" {
 }
 
 resource "google_storage_bucket" "bot-checkpoint-dev" {
-  name     = "splitwiser-checkpoint-${local.project_number}-dev"
+  name     = "splitwiser-checkpoint-${var.project_number}-dev"
   location = local.storage_location
 }

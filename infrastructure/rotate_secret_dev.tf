@@ -4,7 +4,7 @@ resource "google_service_account" "rotate-secret-dev" {
 }
 
 resource "google_project_iam_member" "rotate-secret-viewer-dev" {
-  project = local.project
+  project = var.project
   member  = "serviceAccount:${google_service_account.rotate-secret-dev.email}"
   role    = "roles/secretmanager.viewer"
 }
