@@ -122,82 +122,84 @@ func (c *controller) sendSinglePageApp() {
 	c.writeHTTP(`<!DOCTYPE html>
 <html>
 	<head>
-		async function startApp() {
-			const token = localStorage.getItem('auth_token')
-			if (!token) {
-				console.log('no token found locally')
-				selectDiv('form')
-				return
+		<script>
+			async function startApp() {
+				const token = localStorage.getItem('auth_token')
+				if (!token) {
+					console.log('no token found locally')
+					selectDiv('form')
+					return
+				}
+				console.log('token found locally, sending start command...')
+				const resp = await fetch(window.location.href, {
+					method: 'POST',
+					headers: {
+						Authorization: 'Bearer ' + token,
+					},
+				})
+				if (resp.status === 401) {
+					console.log('token expired, destroying local copy...')
+					localStorage.removeItem('auth_token')
+					selectDiv('form')
+				} else if (resp.status === 201) {
+					success()
+				} else {
+					showServerError(resp)
+				}
 			}
-			console.log('token found locally, sending start command...')
-			const resp = await fetch(window.location.href, {
-				method: 'POST',
-				headers: {
-					Authorization: 'Bearer ' + token,
-				},
-			})
-			if (resp.status === 401) {
-				console.log('token expired, destroying local copy...')
-				localStorage.removeItem('auth_token')
-				selectDiv('form')
-			} else if (resp.status === 201) {
-				success()
-			} else {
-				showServerError(resp)
+
+			function submit() {
+				const password = document.getElementById('password').value
+				console.log('sending start command...')
+				selectDiv('loading')
+				const resp = await fetch(window.location.href, {
+					method: 'POST',
+					headers: {
+						'Content-Type': 'application/json',
+					},
+					body: JSON.stringify({ password }),
+				})
+				if (resp.status === 401) {
+					console.log('invalid password')
+					showDiv('invalid-password')
+					selectDiv('form')
+				} else if (resp.status === 201) {
+					const token = resp.json().auth_token
+					localStorage.setItem('auth_token', token)
+					success()
+				} else {
+					showServerError(resp)
+				}
 			}
-		}
 
-		function submit() {
-			const password = document.getElementById('password').value
-			console.log('sending start command...')
-			selectDiv('loading')
-			const resp = await fetch(window.location.href, {
-				method: 'POST',
-				headers: {
-					'Content-Type': 'application/json',
-				},
-				body: JSON.stringify({ password }),
-			})
-			if (resp.status === 401) {
-				console.log('invalid password')
-				showDiv('invalid-password')
-				selectDiv('form')
-			} else if (resp.status === 201) {
-				const token = resp.json().auth_token
-				localStorage.setItem('auth_token', token)
-				success()
-			} else {
-				showServerError(resp)
+			function success() {
+				console.log('success')
+				hideDiv('server-error')
+				selectDiv('success')
 			}
-		}
 
-		function success() {
-			console.log('success')
-			hideDiv('server-error')
-			selectDiv('success')
-		}
+			function showServerError(resp) {
+				const err = JSON.stringify(resp, null, 2)
+				console.log('unexpected server error:', err)
+				document.getElementById('server-error').text = err
+				showDiv('server-error')
+			}
 
-		function showServerError(resp) {
-			const err = JSON.stringify(resp, null, 2)
-			console.log('unexpected server error:', err)
-			document.getElementById('server-error').text = err
-			showDiv('server-error')
-		}
+			function showDiv(divID) {
+				document.getElementById(divID).removeAttribute('hidden')
+			}
 
-		function showDiv(divID) {
-			document.getElementById(divID).removeAttribute('hidden')
-		}
+			function hideDiv(divID) {
+				document.getElementById(divID).setAttribute('hidden', true)
+			}
 
-		function hideDiv(divID) {
-			document.getElementById(divID).setAttribute('hidden', true)
-		}
-
-		function selectDiv(divID) {
-			['loading', 'form', 'success'].filter(id => id !== divID).forEach(id => {
-				hideDiv(id)
-			})
-			showDiv(divID)
-		}
+			function selectDiv(divID) {
+				['loading', 'form', 'success'].filter(id => id !== divID).forEach(id => {
+					hideDiv(id)
+				})
+				showDiv(divID)
+			}
+		</script>
 	</head>
 	<body onload="startApp()">
 		<div id="server-error" hidden></div>
