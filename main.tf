@@ -22,13 +22,14 @@ provider "google" {
 }
 
 locals {
-  project          = "splitwiser-356519"
-  region           = "europe-west1" # Low CO₂
-  config_path      = "/etc/secrets/config"
-  config_file      = "/latest.yml"
-  config_file_path = format("%s%s", local.config_path, local.config_file)
-  storage_location = upper(local.region)
-  project_number   = data.google_project.splitwiser.number
+  project                     = "splitwiser-356519"
+  region                      = "europe-west1" # Low CO₂
+  config_path                 = "/etc/secrets/config"
+  config_file                 = "/latest.yml"
+  config_file_path            = format("%s%s", local.config_path, local.config_file)
+  storage_location            = upper(local.region)
+  project_number              = data.google_project.splitwiser.number
+  service_agent_iam_grant_tag = md5(google_pubsub_topic_iam_member.service-agent-rotate-secret-publisher.etag)
 }
 
 data "google_project" "splitwiser" {
