@@ -16,11 +16,12 @@ A Telegram bot to help me parse my shared receipts and put the totals on https:/
 8. Configure the Terraform Cloud workspace with a VCS workflow connecting to your (fork) git repository.
 9. Add a secret environment variable `GOOGLE_CREDENTIALS` with the minified JSON of the generated key file to the Terraform Cloud workspace.
 10. Create all the manually-managed secrets in Google Cloud (the ones accessed in Terraform via the `google_secret_manager_secret_version` data source).
-11. Open a pull request setting the new project ID, region and other options in `main.tf`.
-12. Check out the Speculative Plan triggered by Terraform Cloud, it should be sent to you via email.
-13. Merge and checkout the Terraform Plan and Apply triggered by Terraform Cloud.
-14. Verify that all the functions are working by checking out Google Cloud monitoring and testing tools in the Console.
-15. Test the bot interaction: trigger StartBot via HTTP, type in the password, check hello Telegram message from bot.
+11. Run `scripts/enable-bootstrap-googleapis.sh` to enable the minimum Google Cloud APIs necessary for a Terraform Plan.
+12. Open a pull request setting the new project ID, region and other options in `main.tf`.
+13. Check out the Speculative Plan triggered by Terraform Cloud, it should be sent to you via email.
+14. Merge and checkout the Terraform Plan and Apply triggered by Terraform Cloud.
+15. Verify that all the functions are working by checking out Google Cloud monitoring and testing tools in the Console.
+16. Test the bot interaction: trigger StartBot via HTTP, type in the password, check hello Telegram message from bot.
 
 ## Development
 
