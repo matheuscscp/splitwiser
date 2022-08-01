@@ -242,7 +242,7 @@ func Run(ctx context.Context) error {
 
 	createExpense := func(expenseType string, expense *models.Expense, storeName string) {
 		bot.send("Creating %s expense...", expenseType)
-		msg := splitwiseClient.CreateExpense(expense, storeName)
+		msg := splitwiseClient.CreateExpense(ctx, expense, storeName)
 		bot.enqueue(msg)
 	}
 	createNonSharedExpense := func(expense *models.Expense, storeName string) {
