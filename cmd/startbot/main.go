@@ -2,7 +2,6 @@ package main
 
 import (
 	"net/http"
-	"os"
 
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/secrets"
@@ -12,12 +11,12 @@ import (
 )
 
 func main() {
-	jwtSecret, err := secrets.Generate()
-	if err != nil {
-		logrus.Fatalf("error generating jwt secret: %v", err)
-	}
-	os.Setenv(startbot.JWTSecretEnv, jwtSecret)
-	err = http.ListenAndServe("localhost:8080", http.HandlerFunc(startbot.Run))
+	secretsService := secrets.NewMockService()
+	err := http.ListenAndServe("localhost:8080", http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		ctxWithSecretsService := secrets.ContextWithService(r.Context(), secretsService)
+		reqWithContext := r.WithContext(ctxWithSecretsService)
+		startbot.Run(w, reqWithContext)
+	}))
 	if err != nil {
 		logrus.Fatalf("error on ListenAndServe(): %v", err)
 	}

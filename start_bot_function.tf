@@ -44,11 +44,6 @@ resource "google_cloudfunctions_function" "start-bot" {
       version = "latest"
     }
   }
-  secret_environment_variables {
-    key     = "JWT_SECRET"
-    secret  = google_secret_manager_secret.start-bot-jwt-secret.secret_id
-    version = "latest"
-  }
   environment_variables = {
     CONF_FILE = local.config_file_path
   }
@@ -73,6 +68,7 @@ resource "google_secret_manager_secret_version" "start-bot-config" {
     "password" : data.google_secret_manager_secret_version.start-bot-password.secret_data,
     "projectID" : local.project,
     "topicID" : google_pubsub_topic.start-bot.name,
+    "jwtSecretID" : google_secret_manager_secret.start-bot-jwt-secret.id,
   })
 }
 
