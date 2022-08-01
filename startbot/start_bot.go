@@ -1,6 +1,7 @@
 package startbot
 
 import (
+	"crypto/sha256"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
@@ -76,6 +77,9 @@ func readConfig() *config {
 	if err != nil {
 		logrus.Fatalf("error decoding jwt secret: %v", err)
 	}
+	h := sha256.New()
+	h.Write(conf.JWTSecret)
+	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
 	return &conf
 }
 
@@ -261,7 +265,7 @@ func (c *controller) checkAuthentication() error {
 		return c.JWTSecret, nil
 	})
 	if err != nil {
-		return fmt.Errorf("error parsing jwt token: %w %+v", err, token)
+		return fmt.Errorf("error parsing jwt token: %w", err)
 	}
 	if !token.Valid {
 		return errInvalidToken
