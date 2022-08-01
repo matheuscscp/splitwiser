@@ -44,14 +44,14 @@ func (c *client) CreateExpense(expense *models.Expense, storeName string) string
 		"currency_code":        "EUR",
 		"category_id":          12, // Groceries
 		"description":          fmt.Sprintf("%s %s", storeName, expense.Description),
-		"cost":                 expense.Cost.Format(),
+		"cost":                 expense.Cost.String(),
 		"group_id":             c.conf.GroupID,
 		"users__0__user_id":    c.conf.GetUserID(expense.UserShares[0].User),
-		"users__0__paid_share": expense.UserShares[0].Paid.Format(),
-		"users__0__owed_share": expense.UserShares[0].Owed.Format(),
+		"users__0__paid_share": expense.UserShares[0].Paid.String(),
+		"users__0__owed_share": expense.UserShares[0].Owed.String(),
 		"users__1__user_id":    c.conf.GetUserID(expense.UserShares[1].User),
-		"users__1__paid_share": expense.UserShares[1].Paid.Format(),
-		"users__1__owed_share": expense.UserShares[1].Owed.Format(),
+		"users__1__paid_share": expense.UserShares[1].Paid.String(),
+		"users__1__owed_share": expense.UserShares[1].Owed.String(),
 	})
 	if err != nil {
 		return fmt.Sprintf("Error encoding Splitwise JSON body: %v", err)

@@ -84,7 +84,7 @@ func (b *botClient) sendReceiptItem(item *models.ReceiptItem, lastModifiedReceip
 	if lastModifiedReceiptItem >= 0 {
 		undo = fmt.Sprintf("\n%s - Undo last decision", undoLastDecision)
 	}
-	b.send(`Item: "%s" (%s)
+	b.send(`Item: "%s" (%v)
 
 (see if the next line rings a bell: "%s")
 
@@ -95,7 +95,7 @@ Please choose the owner:
 %s - Not a receipt item
 %s - Delay item decision%s`,
 		item.MainLine,
-		item.Price.Format(),
+		item.Price,
 		item.NextLine,
 		models.Ana,
 		models.Matheus,
@@ -118,17 +118,19 @@ func (b *botClient) sendOwnerChoice(lastModifiedReceiptItem int) {
 }
 
 func (b *botClient) sendPayerChoice(receipt models.Receipt) {
-	totalInCents := receipt.ComputeTotals()
-	b.send(`Ana's total: %s
-Matheus's total: %s
-Shared total: %s
+	totalsInCents, totalInCents := receipt.ComputeTotals()
+	b.send(`Ana's total: %v
+Matheus's total: %v
+Shared total: %v
+Overall total: %v
 
 Please choose the payer:
 %s - Ana
 %s - Matheus`,
-		totalInCents[models.Ana].Format(),
-		totalInCents[models.Matheus].Format(),
-		totalInCents[models.Shared].Format(),
+		totalsInCents[models.Ana],
+		totalsInCents[models.Matheus],
+		totalsInCents[models.Shared],
+		totalInCents,
 		models.Ana,
 		models.Matheus,
 	)
