@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/matheuscscp/splitwiser/checkpoint"
 	"github.com/matheuscscp/splitwiser/config"
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/models"
+	"github.com/matheuscscp/splitwiser/services/checkpoint"
 	"github.com/matheuscscp/splitwiser/splitwise"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
