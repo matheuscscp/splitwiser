@@ -23,16 +23,16 @@ provider "google" {
 
 locals {
   region         = "europe-west1" # Low CO₂
-  project        = "splitwiser-356519"
+  project        = "splitwiser-telegram-bot"
   project_number = data.google_project.splitwiser.number
 }
 
 data "google_project" "splitwiser" {
 }
 
-# module "infrastructure" {
-#   source         = "./infrastructure"
-#   region         = local.region
-#   project        = local.project
-#   project_number = local.project_number
-# }
+module "infrastructure" {
+  source         = "./infrastructure"
+  region         = local.region
+  project        = local.project
+  project_number = local.project_number
+}
