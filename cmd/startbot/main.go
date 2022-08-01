@@ -16,7 +16,6 @@ func main() {
 	if err != nil {
 		logrus.Fatalf("error generating jwt secret: %v", err)
 	}
-	logrus.Infof("jwt secret: %s", jwtSecret)
 	os.Setenv(startbot.JWTSecretEnv, jwtSecret)
 	err = http.ListenAndServe("localhost:8080", http.HandlerFunc(startbot.Run))
 	if err != nil {
