@@ -1,4 +1,4 @@
-cmd/dev/dev
-cmd/dev/config*.yml
-cmd/dev/gcloud.json
+cmd/bot/dev
+cmd/bot/config*.yml
+cmd/bot/gcloud.json
 .terraform*
