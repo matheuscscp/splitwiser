@@ -2,6 +2,7 @@ package splitwise
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -16,7 +17,7 @@ type (
 	Client interface {
 		// CreateExpense creates an expense on the Splitwise API and
 		// returns a message for the bot to send back as result.
-		CreateExpense(expense *models.Expense, storeName string) (msg string)
+		CreateExpense(ctx context.Context, expense *models.Expense, storeName string) (msg string)
 	}
 
 	client struct {
@@ -29,7 +30,7 @@ func NewClient(conf *config.Splitwise) Client {
 	return &client{conf: conf}
 }
 
-func (c *client) CreateExpense(expense *models.Expense, storeName string) string {
+func (c *client) CreateExpense(ctx context.Context, expense *models.Expense, storeName string) string {
 	if expense.Cost < 0 {
 		return "Skipping expense with negative cost."
 	}
@@ -58,7 +59,12 @@ func (c *client) CreateExpense(expense *models.Expense, storeName string) string
 	}
 
 	// make request
-	req, err := http.NewRequest(http.MethodPost, "https://secure.splitwise.com/api/v3.0/create_expense", &buf)
+	req, err := http.NewRequestWithContext(
+		ctx,
+		http.MethodPost,
+		"https://secure.splitwise.com/api/v3.0/create_expense",
+		&buf,
+	)
 	if err != nil {
 		return fmt.Sprintf("Error creating request for Splitwise API: %v", err)
 	}
