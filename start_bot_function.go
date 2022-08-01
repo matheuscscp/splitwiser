@@ -148,7 +148,7 @@ func (c *controller) sendSinglePageApp() {
 				}
 			}
 
-			function submit() {
+			async function submit() {
 				const password = document.getElementById('password').value
 				console.log('sending start command...')
 				selectDiv('loading')
