@@ -30,9 +30,9 @@ locals {
 data "google_project" "splitwiser" {
 }
 
-module "infrastructure" {
-  source         = "./infrastructure"
-  region         = local.region
-  project        = local.project
-  project_number = local.project_number
-}
+# module "infrastructure" {
+#   source         = "./infrastructure"
+#   region         = local.region
+#   project        = local.project
+#   project_number = local.project_number
+# }
