@@ -141,9 +141,9 @@ Please choose the payer:
 func Run(ctx context.Context) error {
 	startTime := time.Now()
 
-	conf, err := config.Load()
-	if err != nil {
-		return err
+	var conf config.Bot
+	if err := config.Load(&conf); err != nil {
+		return fmt.Errorf("error loading config: %w", err)
 	}
 
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)

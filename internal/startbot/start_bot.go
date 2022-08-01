@@ -6,30 +6,21 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
-	"os"
 	"strings"
 	"time"
 
+	"github.com/matheuscscp/splitwiser/config"
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/services/events"
 	"github.com/matheuscscp/splitwiser/services/secrets"
 
 	jwt "github.com/golang-jwt/jwt/v4"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/yaml.v3"
 )
 
 type (
-	config struct {
-		Password    string `yaml:"password"`
-		ProjectID   string `yaml:"projectID"`
-		TopicID     string `yaml:"topicID"`
-		JWTSecretID string `yaml:"jwtSecretID"`
-		jwtSecret   []byte `yaml:"-"`
-	}
-
 	controller struct {
-		conf          *config
+		conf          *config.StartBot
 		w             http.ResponseWriter
 		r             *http.Request
 		eventsService events.Service
@@ -52,7 +43,12 @@ var (
 // Run serves the start-bot website.
 func Run(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
-	conf := readConfig()
+
+	// load config
+	var conf config.StartBot
+	if err := config.Load(&conf); err != nil {
+		logrus.Fatalf("error loading config: %v", err)
+	}
 
 	// create secrets service
 	secretsService, err := secrets.NewService(ctx)
@@ -62,12 +58,12 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	defer secretsService.Close()
 
 	// read jwt secret
-	conf.jwtSecret, err = secretsService.Read(ctx, conf.JWTSecretID)
+	conf.JWTSecret, err = secretsService.Read(ctx, conf.JWTSecretID)
 	if err != nil {
 		logrus.Fatalf("error reading jwt secret: %v", err)
 	}
 	h := sha256.New()
-	h.Write(conf.jwtSecret)
+	h.Write(conf.JWTSecret)
 	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
 
 	// create events service
@@ -78,27 +74,11 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	defer eventsService.Close()
 
 	(&controller{
-		conf:          conf,
+		conf:          &conf,
 		w:             w,
 		r:             r,
 		eventsService: eventsService,
 	}).handleRequest()
-}
-
-func readConfig() *config {
-	confFile := os.Getenv("CONF_FILE")
-	if confFile == "" {
-		confFile = "config.yml"
-	}
-	b, err := os.ReadFile(confFile)
-	if err != nil {
-		logrus.Fatalf("error reading config file '%s': %v", confFile, err)
-	}
-	var conf config
-	if err := yaml.Unmarshal(b, &conf); err != nil {
-		logrus.Fatalf("error unmarshaling config: %v", err)
-	}
-	return &conf
 }
 
 func (c *controller) handleRequest() {
@@ -254,7 +234,7 @@ func (c *controller) sendNewJWT() {
 	token := jwt.NewWithClaims(jwtSigningMethod, jwt.MapClaims{
 		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
-	tokenString, err := token.SignedString(c.conf.jwtSecret)
+	tokenString, err := token.SignedString(c.conf.JWTSecret)
 	if err != nil {
 		logrus.Errorf("error signing jwt token: %v", err)
 		tokenString = "null"
@@ -280,7 +260,7 @@ func (c *controller) checkAuthentication() error {
 		if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok || method != jwtSigningMethod {
 			return nil, fmt.Errorf("invalid signing method: %v", token.Header["alg"])
 		}
-		return c.conf.jwtSecret, nil
+		return c.conf.JWTSecret, nil
 	})
 	if err != nil {
 		return fmt.Errorf("error parsing jwt token: %w", err)
