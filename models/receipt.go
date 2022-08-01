@@ -110,14 +110,16 @@ func removeTescoSingleAsteriskLines(receiptLines []string) []string {
 }
 
 // ComputeTotals ...
-func (r Receipt) ComputeTotals() map[ReceiptItemOwner]PriceInCents {
-	totalInCents := make(map[ReceiptItemOwner]PriceInCents)
+func (r Receipt) ComputeTotals() (map[ReceiptItemOwner]PriceInCents, PriceInCents) {
+	totalsInCents := make(map[ReceiptItemOwner]PriceInCents)
+	var totalInCents PriceInCents
 	for _, item := range r {
 		if item.Owner == Ana || item.Owner == Matheus || item.Owner == Shared {
-			totalInCents[item.Owner] += item.Price
+			totalsInCents[item.Owner] += item.Price
+			totalInCents += item.Price
 		}
 	}
-	return totalInCents
+	return totalsInCents, totalInCents
 }
 
 // ComputeExpenses ...
@@ -125,11 +127,11 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 	nonSharedExpense *Expense,
 	sharedExpense *Expense,
 ) {
-	totalInCents := r.ComputeTotals()
+	totalsInCents, _ := r.ComputeTotals()
 
-	cost, borrower, description := totalInCents[Ana], Ana, "vegan"
+	cost, borrower, description := totalsInCents[Ana], Ana, "vegan"
 	if payer == Ana {
-		cost, borrower, description = totalInCents[Matheus], Matheus, "non-vegan"
+		cost, borrower, description = totalsInCents[Matheus], Matheus, "non-vegan"
 	}
 	nonSharedExpense = &Expense{
 		Cost: cost,
@@ -148,7 +150,7 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 		Description: description,
 	}
 
-	costShared := totalInCents[Shared]
+	costShared := totalsInCents[Shared]
 	halfCostSharedRoundedDown := costShared / 2
 	halfCostSharedRoundedUp := (costShared + 1) / 2
 	sharedExpense = &Expense{
@@ -194,8 +196,8 @@ func parsePriceToCents(tok string) PriceInCents {
 	return PriceInCents(cents + 100*euros)
 }
 
-// Format ...
-func (p PriceInCents) Format() string {
+// String ...
+func (p PriceInCents) String() string {
 	s := fmt.Sprintf("%d.", p/100)
 	mod := p % 100
 	if mod < 10 {
