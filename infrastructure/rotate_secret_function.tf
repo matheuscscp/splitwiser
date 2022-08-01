@@ -8,13 +8,13 @@ resource "google_service_account" "rotate-secret" {
 }
 
 resource "google_project_iam_member" "rotate-secret-viewer" {
-  project = local.project
+  project = var.project
   member  = "serviceAccount:${google_service_account.rotate-secret.email}"
   role    = "roles/secretmanager.viewer"
 }
 
 resource "google_project_iam_member" "rotate-secret-version-manager" {
-  project = local.project
+  project = var.project
   member  = "serviceAccount:${google_service_account.rotate-secret.email}"
   role    = "roles/secretmanager.secretVersionManager"
 }
