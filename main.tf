@@ -51,6 +51,6 @@ resource "google_pubsub_topic" "start-bot" {
   name = "start-bot"
 }
 
-resource "google_pubsub_topic" "rotate-jwt-secret" {
-  name = "rotate-jwt-secret"
+resource "google_pubsub_topic" "rotate-secret" {
+  name = "rotate-secret"
 }
