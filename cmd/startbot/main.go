@@ -4,8 +4,8 @@ import (
 	"net/http"
 
 	_ "github.com/matheuscscp/splitwiser/cmd"
+	"github.com/matheuscscp/splitwiser/internal/startbot"
 	_ "github.com/matheuscscp/splitwiser/logging"
-	"github.com/matheuscscp/splitwiser/startbot"
 
 	"github.com/sirupsen/logrus"
 )

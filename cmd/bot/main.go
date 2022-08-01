@@ -1,8 +1,8 @@
 package main
 
 import (
-	"github.com/matheuscscp/splitwiser/bot"
 	_ "github.com/matheuscscp/splitwiser/cmd"
+	"github.com/matheuscscp/splitwiser/internal/bot"
 	_ "github.com/matheuscscp/splitwiser/logging"
 
 	"github.com/sirupsen/logrus"
