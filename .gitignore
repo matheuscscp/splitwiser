@@ -1,7 +1,5 @@
 cmd/bot/bot
-cmd/bot/config.yml
-cmd/bot/gcloud.json
 cmd/startbot/startbot
-cmd/startbot/config.yml
-cmd/startbot/gcloud.json
+**/config.yml
+**/*service-account-key.json
 .terraform*

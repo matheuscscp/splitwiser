@@ -3,6 +3,7 @@ package main
 import (
 	"net/http"
 
+	_ "github.com/matheuscscp/splitwiser/cmd"
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/secrets"
 	"github.com/matheuscscp/splitwiser/startbot"
