@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"hash/crc32"
 	"io"
-	"os"
 
 	_ "github.com/matheuscscp/splitwiser/logging"
 
@@ -16,8 +15,8 @@ import (
 	secretmanagerpb "google.golang.org/genproto/googleapis/cloud/secretmanager/v1"
 )
 
-// RotateJWTSecret is a Pub/Sub Cloud Function.
-func RotateJWTSecret(ctx context.Context, m PubSubMessage) error {
+// RotateSecret is a Pub/Sub Cloud Function.
+func RotateSecret(ctx context.Context, m PubSubMessage) error {
 	if m.Attributes.EventType != "SECRET_ROTATE" {
 		logrus.Infof("event type is not secret rotation: %s", m.Attributes.EventType)
 		return nil
@@ -31,7 +30,7 @@ func RotateJWTSecret(ctx context.Context, m PubSubMessage) error {
 	defer client.Close()
 
 	// find previous version
-	parent := os.Getenv("PARENT")
+	parent := m.Attributes.SecretId
 	latest, err := client.GetSecretVersion(ctx, &secretmanagerpb.GetSecretVersionRequest{
 		Name: fmt.Sprintf("%s/versions/latest", parent),
 	})
@@ -55,7 +54,7 @@ func RotateJWTSecret(ctx context.Context, m PubSubMessage) error {
 	checksum := int64(crc32.Checksum(secretPayload, crc32.MakeTable(crc32.Castagnoli)))
 
 	// add version
-	_, err = client.AddSecretVersion(ctx, &secretmanagerpb.AddSecretVersionRequest{
+	newVersion, err := client.AddSecretVersion(ctx, &secretmanagerpb.AddSecretVersionRequest{
 		Parent: parent,
 		Payload: &secretmanagerpb.SecretPayload{
 			Data:       secretPayload,
@@ -76,5 +75,6 @@ func RotateJWTSecret(ctx context.Context, m PubSubMessage) error {
 		}
 	}
 
+	logrus.Infof("secret rotated: %s", newVersion.Name)
 	return nil
 }

@@ -9,6 +9,7 @@ type (
 
 	// PubSubAttributes are attributes from the Pub/Sub event.
 	PubSubAttributes struct {
+		SecretId  string `json:"secretId"`
 		EventType string `json:"eventType"`
 	}
 )

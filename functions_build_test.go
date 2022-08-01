@@ -7,8 +7,8 @@ import (
 func TestBuild(t *testing.T) {
 	startBot := StartBot
 	bot := Bot
-	rotateJWTSecret := RotateJWTSecret
-	if startBot == nil || bot == nil || rotateJWTSecret == nil {
+	rotateSecret := RotateSecret
+	if startBot == nil || bot == nil || rotateSecret == nil {
 		t.Fail()
 	}
 }

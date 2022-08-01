@@ -87,12 +87,16 @@ resource "google_secret_manager_secret" "start-bot-jwt-secret" {
   }
   rotation {
     rotation_period    = "7776000s" # 90d
-    next_rotation_time = timeadd(timestamp(), "6m")
+    next_rotation_time = timeadd(timestamp(), "1h")
   }
   topics {
-    name = google_pubsub_topic.rotate-jwt-secret.id
+    name = google_pubsub_topic.rotate-secret.id
   }
   labels = {
-    "pubsub-topic-iam-membership-dependency" = md5(google_pubsub_topic_iam_member.service-agent-identity-rotate-jwt-secret-publisher.etag)
+    # the label below ensures that the secretmanager service agent will always be granted the
+    # publisher role for the google_pubsub_topic.rotate-secret before the creation of this secret
+    # takes place, since this is a prerequisite for the creation to succeed and not fail with
+    # a permission denied error
+    "iam-grant" = md5(google_pubsub_topic_iam_member.service-agent-rotate-secret-publisher.etag)
   }
 }
