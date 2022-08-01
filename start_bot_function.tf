@@ -94,6 +94,6 @@ resource "google_secret_manager_secret" "start-bot-jwt-secret" {
     # publisher role for the google_pubsub_topic.rotate-secret before the creation of this secret
     # takes place, since this is a prerequisite for the creation to succeed and not fail with
     # a permission denied error
-    "iam-grant" = md5(google_pubsub_topic_iam_member.service-agent-rotate-secret-publisher.etag)
+    "iam-grant" = local.service_agent_iam_grant_tag
   }
 }
