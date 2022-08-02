@@ -169,21 +169,27 @@ func Run(ctx context.Context) error {
 	// shutdown thread
 	shutdownThread := make(chan struct{})
 	go func() {
-		defer bot.shutdown()
+		ctxDone := ctx.Done()
 		timer := time.NewTimer(botTimeoutWatchInterval)
+		defer func() {
+			bot.shutdown()
+			if !timer.Stop() {
+				<-timer.C
+			}
+		}()
 		for {
 			select {
 			case <-timer.C:
 				if botTimeout <= time.Since(startTime) {
-					bot.send("You took too long to respond, I'm shutting down.")
+					bot.send("My time has run out, I'm shutting down.")
 					return
 				}
 				timer.Reset(botTimeoutWatchInterval)
 			case <-shutdownThread:
 				bot.send("Okay, I'm shutting down.")
-				if !timer.Stop() {
-					<-timer.C
-				}
+				return
+			case <-ctxDone:
+				bot.send("My invoker cancelled my context, I'm shutting down.")
 				return
 			}
 		}
