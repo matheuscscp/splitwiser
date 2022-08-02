@@ -97,6 +97,7 @@ func (c *controller) handleRequest() {
 	if !c.hasAuthentication() {
 		if err := c.checkPassword(); err != nil {
 			if errors.Is(err, errWrongPassword) {
+				logrus.Warn("wrong password")
 				c.replyStatusCode(http.StatusUnauthorized)
 			} else {
 				c.replyError(http.StatusBadRequest, err)
@@ -291,7 +292,7 @@ func (c *controller) startBot() error {
 			logrus.Error("cannot publish start-bot event, events service is not configured")
 			return nil
 		}
-		return fmt.Errorf("error publishing start-bot event")
+		return fmt.Errorf("error publishing start-bot event: %w", err)
 	}
 	logrus.Infof("start-bot event published with serverID=%s", serverID)
 	return nil
@@ -310,6 +311,7 @@ func (c *controller) replyStatusCode(code int) {
 }
 
 func (c *controller) replyError(code int, err error) {
+	logrus.WithError(err).Errorf("HTTP status code %d", code)
 	c.w.WriteHeader(code)
 	c.writeHTTP(err.Error())
 }

@@ -39,7 +39,7 @@ func NewService(ctx context.Context, projectID string) (Service, error) {
 
 func (s *service) Close() {
 	if s.client != nil {
-		s.Close()
+		s.client.Close()
 	}
 }
 

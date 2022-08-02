@@ -33,7 +33,6 @@ resource "google_cloudfunctions_function" "start-bot" {
   trigger_http                 = true
   https_trigger_security_level = "SECURE_ALWAYS"
   docker_registry              = "ARTIFACT_REGISTRY"
-  available_memory_mb          = 512
   source_archive_bucket        = google_storage_bucket.functions-source-code.name
   source_archive_object        = google_storage_bucket_object.functions-source-code.name
   service_account_email        = google_service_account.start-bot.email
