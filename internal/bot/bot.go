@@ -169,13 +169,12 @@ func Run(ctx context.Context) error {
 	// shutdown thread
 	shutdownThread := make(chan struct{})
 	go func() {
-		ctxDone := ctx.Done()
 		timer := time.NewTimer(botTimeoutWatchInterval)
 		defer func() {
-			bot.shutdown()
 			if !timer.Stop() {
 				<-timer.C
 			}
+			bot.shutdown()
 		}()
 		for {
 			select {
@@ -188,8 +187,8 @@ func Run(ctx context.Context) error {
 			case <-shutdownThread:
 				bot.send("Okay, I'm shutting down.")
 				return
-			case <-ctxDone:
-				bot.send("My invoker cancelled my context, I'm shutting down.")
+			case <-ctx.Done():
+				bot.send("My context was cancelled, I'm shutting down.")
 				return
 			}
 		}
