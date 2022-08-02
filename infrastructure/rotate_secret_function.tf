@@ -25,8 +25,8 @@ resource "google_cloudfunctions_function" "rotate-secret" {
   description           = "Background function to rotate secrets in the project"
   runtime               = "go116"
   docker_registry       = "ARTIFACT_REGISTRY"
-  source_archive_bucket = google_storage_bucket.functions-source-code.name
-  source_archive_object = google_storage_bucket_object.functions-source-code.name
+  source_archive_bucket = google_storage_bucket.source-code.name
+  source_archive_object = google_storage_bucket_object.source-code.name
   service_account_email = google_service_account.rotate-secret.email
   event_trigger {
     event_type = "google.pubsub.topic.publish"
