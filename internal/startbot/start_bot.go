@@ -1,7 +1,6 @@
 package startbot
 
 import (
-	"crypto/sha256"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -62,9 +61,6 @@ func Run(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		logrus.Fatalf("error reading jwt secret: %v", err)
 	}
-	h := sha256.New()
-	h.Write(conf.JWTSecret)
-	logrus.Infof("loaded jwt secret. hash: %x", h.Sum(nil))
 
 	// create events service
 	eventsService, err := events.NewService(ctx, conf.ProjectID)
