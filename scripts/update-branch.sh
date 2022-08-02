@@ -6,5 +6,5 @@ git add .
 git stash
 git fetch --prune --all --force --tags
 git update-ref refs/heads/main origin/main
-git reset --hard main
+git rebase master
 git stash pop
