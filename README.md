@@ -19,9 +19,10 @@ A Telegram bot to help me parse my shared receipts and put the totals on https:/
 11. Run `scripts/enable-googleapis.sh` to enable the necessary Google Cloud APIs.
 12. Open a pull request setting the new project ID, region and other options in `main.tf`.
 13. Check out the Speculative Plan triggered by Terraform Cloud, it should be sent to you via email.
-14. Merge and checkout the Terraform Plan and Apply triggered by Terraform Cloud.
-15. Verify that all the functions are working by checking out Google Cloud monitoring and testing tools in the Console.
-16. Test the bot interaction: trigger StartBot via HTTP, type in the password, check hello Telegram message from bot.
+14. Merge and check out the Terraform Plan and Apply triggered by Terraform Cloud.
+15. After the Terraform Apply finishes, go check the full IDs of all the secrets with a rotation policy in the Google Cloud Console (`projects/*/secrets/*`) and trigger the RotateSecret function with the JSON `{"attributes":{"secretId":"<secret-id>","eventType":"SECRET_ROTATE"}}` in the "Testing" tab of the Google Cloud Functions Console.
+16. Verify that all the functions are working by checking out Google Cloud monitoring and testing tools in the Console.
+17. Test the bot interaction: trigger StartBot via HTTP, type in the password, check hello Telegram message from bot.
 
 ## Development
 
