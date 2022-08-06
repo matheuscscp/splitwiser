@@ -38,6 +38,7 @@ const (
 var (
 	regexSpaces                  = regexp.MustCompile(`\s+`)
 	regexPriceToken              = regexp.MustCompile(`^(EUR|€){0,1}([0-9oO]+)\.([0-9oO]{1,2})$`)
+	regexPriceOAsZero            = regexp.MustCompile(`[oO]`)
 	regexTescoSingleAsteriskLine = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
@@ -185,12 +186,15 @@ func (r Receipt) NextItem(curItem int) int {
 
 func parsePriceToCents(tok string) PriceInCents {
 	m := regexPriceToken.FindStringSubmatch(tok)
-	euros, _ := strconv.ParseInt(m[2], 10, 64)
-	if len(m[2]) == 0 {
+	eurosStr, centsStr := m[2], m[3]
+	eurosStr = regexPriceOAsZero.ReplaceAllString(eurosStr, "0")
+	centsStr = regexPriceOAsZero.ReplaceAllString(centsStr, "0")
+	euros, _ := strconv.ParseInt(eurosStr, 10, 64)
+	if len(eurosStr) == 0 {
 		euros = 0
 	}
-	cents, _ := strconv.ParseInt(m[3], 10, 64)
-	if len(m[3]) == 1 {
+	cents, _ := strconv.ParseInt(centsStr, 10, 64)
+	if len(centsStr) == 1 {
 		cents *= 10
 	}
 	return PriceInCents(cents + 100*euros)
