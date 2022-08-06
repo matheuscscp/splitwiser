@@ -37,7 +37,7 @@ const (
 
 var (
 	regexSpaces                  = regexp.MustCompile(`\s+`)
-	regexPriceToken              = regexp.MustCompile(`^(EUR|€){0,1}(\d+)\.(\d{1,2})$`)
+	regexPriceToken              = regexp.MustCompile(`^(EUR|€){0,1}([0-9oO]+)\.([0-9oO]{1,2})$`)
 	regexTescoSingleAsteriskLine = regexp.MustCompile(`^\s*\*\s*$`)
 )
 
