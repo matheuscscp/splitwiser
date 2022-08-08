@@ -90,10 +90,8 @@ resource "google_secret_manager_secret" "start-bot-jwt-secret" {
   }
   labels = {
     "num-bytes" = "32"
-    # the label below ensures that the secretmanager service agent will always be granted the
-    # publisher role for the google_pubsub_topic.rotate-secret before the creation of this secret
-    # takes place, since this is a prerequisite for the creation to succeed and not fail with
-    # a permission denied error
-    "iam-grant" = local.secretmanager_agent_iam_grant_tag
   }
+  depends_on = [
+    google_pubsub_topic_iam_member.secretmanager-agent-rotate-secret-publisher
+  ]
 }
