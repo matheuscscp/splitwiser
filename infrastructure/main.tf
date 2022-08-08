@@ -11,11 +11,10 @@ variable "project_number" {
 }
 
 locals {
-  config_path                       = "/etc/secrets/config"
-  config_file                       = "/latest.yml"
-  config_file_path                  = format("%s%s", local.config_path, local.config_file)
-  storage_location                  = upper(var.region)
-  secretmanager_agent_iam_grant_tag = md5(google_pubsub_topic_iam_member.secretmanager-agent-rotate-secret-publisher.etag)
+  config_path      = "/etc/secrets/config"
+  config_file      = "/latest.yml"
+  config_file_path = format("%s%s", local.config_path, local.config_file)
+  storage_location = upper(var.region)
 }
 
 resource "google_storage_bucket" "source-code" {
