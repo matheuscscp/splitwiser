@@ -1,6 +1,6 @@
 cmd/bot/bot
 cmd/startbot/startbot
 cmd/rotatesecret/rotatesecret
-**/config.yml
+**/config*.yml
 **/*service-account-key.json
 .terraform*
