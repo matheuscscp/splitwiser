@@ -35,8 +35,8 @@ const (
 	botStateWaitingForPayer
 	botStateWaitingForStore
 
-	botTimeout              = 510 * time.Second
-	botTimeoutWatchInterval = 5 * time.Second
+	botLongPollingTimeout = 60 * time.Second
+	botTimeout            = 540*time.Second - botLongPollingTimeout - 5*time.Second
 
 	delayDecision    = "d"
 	undoLastDecision = "u"
@@ -52,7 +52,7 @@ func (b *botClient) account() string {
 
 func (b *botClient) getUpdatesChannel() tgbotapi.UpdatesChannel {
 	conf := tgbotapi.NewUpdate(0 /*offset*/)
-	conf.Timeout = 60
+	conf.Timeout = int(botLongPollingTimeout.Seconds())
 	return b.telegramClient.GetUpdatesChan(conf)
 }
 
@@ -140,6 +140,8 @@ Please choose the payer:
 // Run starts the bot and returns when the bot has finished processing all receipts.
 func Run(ctx context.Context) error {
 	startTime := time.Now()
+	ctx, cancel := context.WithTimeout(ctx, botTimeout)
+	defer cancel()
 
 	var conf config.Bot
 	if err := config.Load(&conf); err != nil {
@@ -167,31 +169,10 @@ func Run(ctx context.Context) error {
 	logrus.Infof("Authenticated on Telegram bot account %s", bot.account())
 
 	// shutdown thread
-	shutdownThread := make(chan struct{})
 	go func() {
-		timer := time.NewTimer(botTimeoutWatchInterval)
-		defer func() {
-			if !timer.Stop() {
-				<-timer.C
-			}
-			bot.shutdown()
-		}()
-		for {
-			select {
-			case <-timer.C:
-				if botTimeout <= time.Since(startTime) {
-					bot.send("My time has run out, I'm shutting down.")
-					return
-				}
-				timer.Reset(botTimeoutWatchInterval)
-			case <-shutdownThread:
-				bot.send("Okay, I'm shutting down.")
-				return
-			case <-ctx.Done():
-				bot.send("My context was cancelled, I'm shutting down.")
-				return
-			}
-		}
+		<-ctx.Done()
+		bot.send("My context was cancelled, I'm shutting down.")
+		bot.shutdown()
 	}()
 
 	// bot state
@@ -277,7 +258,7 @@ func Run(ctx context.Context) error {
 			continue
 		}
 		if msg == "/finish" {
-			close(shutdownThread)
+			cancel()
 			continue
 		}
 
