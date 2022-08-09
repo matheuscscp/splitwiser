@@ -35,8 +35,12 @@ func NewService(ctx context.Context, bucket string) (Service, error) {
 	if err != nil {
 		return nil, fmt.Errorf("error creating cloud storage client: %w", err)
 	}
+	bktClient := client.Bucket(bucket)
+	if _, err := bktClient.Attrs(ctx); err != nil {
+		return nil, fmt.Errorf("error creating cloud storage bucket client: %w", err)
+	}
 	return &service{
-		client: client.Bucket(bucket).Object("checkpoint.yml"),
+		client: bktClient.Object("checkpoint.yml"),
 		close:  func() { client.Close() },
 	}, nil
 }
