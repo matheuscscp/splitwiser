@@ -13,6 +13,12 @@ resource "google_secret_manager_secret_iam_member" "bot-config-secret-accessor" 
   role      = "roles/secretmanager.secretAccessor"
 }
 
+resource "google_storage_bucket_iam_member" "bot-checkpoint-bucket-reader" {
+  bucket = google_storage_bucket.bot-checkpoint.name
+  member = "serviceAccount:${google_service_account.bot.email}"
+  role   = "roles/storage.legacyBucketReader"
+}
+
 resource "google_storage_bucket_iam_member" "bot-checkpoint-object-admin" {
   bucket = google_storage_bucket.bot-checkpoint.name
   member = "serviceAccount:${google_service_account.bot.email}"
