@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"runtime/debug"
 	"strings"
 	"time"
 
@@ -264,7 +265,15 @@ func Run(ctx context.Context) error {
 
 		switch botState {
 		case botStateIdle:
-			receipt = models.ParseReceipt(msg)
+			func() {
+				defer func() {
+					if p := recover(); p != nil {
+						receipt = nil
+						logrus.Errorf("panic parsing input as receipt: %v\n%s", p, string(debug.Stack()))
+					}
+				}()
+				receipt = models.ParseReceipt(msg)
+			}()
 			if receipt.Len() > 0 {
 				storeCheckpoint()
 				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
