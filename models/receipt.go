@@ -186,7 +186,7 @@ func (r Receipt) NextItem(curItem int) int {
 
 func parsePriceToCents(tok string) PriceInCents {
 	m := regexPriceToken.FindStringSubmatch(tok)
-	eurosStr, centsStr := m[2], m[3]
+	eurosStr, centsStr := m[3], m[4]
 	eurosStr = regexPriceOAsZero.ReplaceAllString(eurosStr, "0")
 	centsStr = regexPriceOAsZero.ReplaceAllString(centsStr, "0")
 	euros, _ := strconv.ParseInt(eurosStr, 10, 64)
