@@ -67,8 +67,8 @@ resource "google_secret_manager_secret" "bot-config" {
 resource "google_secret_manager_secret_version" "bot-config" {
   secret = google_secret_manager_secret.bot-config.id
   secret_data = yamlencode({
-    "openai": {
-      "token": data.google_secret_manager_secret_version.bot-openai-token.secret_data,
+    "openai" : {
+      "token" : data.google_secret_manager_secret_version.bot-openai-token.secret_data,
     },
     "telegram" : {
       "token" : data.google_secret_manager_secret_version.bot-telegram-token.secret_data,
