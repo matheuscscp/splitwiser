@@ -1,9 +1,6 @@
 terraform {
-  cloud {
-    organization = "matheuscscp"
-    workspaces {
-      name = "splitwiser"
-    }
+  backend "gcs" {
+    bucket = "splitwiser-tf-state"
   }
 }
 
