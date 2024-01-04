@@ -12,7 +12,7 @@ resource "google_secret_manager_secret_iam_member" "start-bot-jwt-secret-accesso
 resource "google_secret_manager_secret" "start-bot-jwt-secret-dev" {
   secret_id = "start-bot-jwt-secret-dev"
   replication {
-    automatic = true
+    auto {}
   }
   labels = {
     "num-bytes" = "32"

@@ -60,7 +60,7 @@ resource "google_cloudfunctions_function" "bot" {
 resource "google_secret_manager_secret" "bot-config" {
   secret_id = "bot-config"
   replication {
-    automatic = true
+    auto {}
   }
 }
 
