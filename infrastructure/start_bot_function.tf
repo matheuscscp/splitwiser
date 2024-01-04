@@ -58,7 +58,7 @@ resource "google_cloudfunctions_function" "start-bot" {
 resource "google_secret_manager_secret" "start-bot-config" {
   secret_id = "start-bot-config"
   replication {
-    automatic = true
+    auto {}
   }
 }
 
@@ -79,7 +79,7 @@ data "google_secret_manager_secret_version" "start-bot-password" {
 resource "google_secret_manager_secret" "start-bot-jwt-secret" {
   secret_id = "start-bot-jwt-secret"
   replication {
-    automatic = true
+    auto {}
   }
   rotation {
     rotation_period    = "7776000s" # 90d
