@@ -35,7 +35,7 @@ resource "google_cloudfunctions_function" "start-bot" {
   name                         = local.start_bot_function_name
   entry_point                  = local.start_bot_function_name
   description                  = "HTTPS function to trigger the bot via Cloud Pub/Sub"
-  runtime                      = "go116"
+  runtime                      = "go121"
   trigger_http                 = true
   https_trigger_security_level = "SECURE_ALWAYS"
   docker_registry              = "ARTIFACT_REGISTRY"
