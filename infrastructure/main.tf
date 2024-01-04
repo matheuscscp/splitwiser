@@ -22,17 +22,10 @@ resource "google_storage_bucket" "source-code" {
   location = local.storage_location
 }
 
-data "archive_file" "source-code" {
-  type        = "zip"
-  source_dir  = "./"
-  output_path = "./source.zip"
-  excludes    = ["./source.zip"]
-}
-
 resource "google_storage_bucket_object" "source-code" {
   name   = data.archive_file.source-code.output_sha
   bucket = google_storage_bucket.source-code.name
-  source = data.archive_file.source-code.output_path
+  source = "./source.zip"
 }
 
 resource "google_pubsub_topic" "start-bot" {
