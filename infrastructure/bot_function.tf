@@ -34,7 +34,7 @@ resource "google_cloudfunctions_function" "bot" {
   name                  = local.bot_function_name
   entry_point           = local.bot_function_name
   description           = "The bot background function"
-  runtime               = "go116"
+  runtime               = "go121"
   timeout               = 540
   docker_registry       = "ARTIFACT_REGISTRY"
   source_archive_bucket = google_storage_bucket.source-code.name
