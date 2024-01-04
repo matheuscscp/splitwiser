@@ -16,11 +16,13 @@ import (
 	"github.com/matheuscscp/splitwiser/services/checkpoint"
 
 	tgbotapi "github.com/go-telegram-bot-api/telegram-bot-api/v5"
+	openai "github.com/sashabaranov/go-openai"
 	"github.com/sirupsen/logrus"
 )
 
 type (
 	botClient struct {
+		openAI         *openai.Client
 		telegramClient *tgbotapi.BotAPI
 		chatID         int64
 		closed         bool
@@ -149,6 +151,8 @@ func Run(ctx context.Context) error {
 		return fmt.Errorf("error loading config: %w", err)
 	}
 
+	openAI := openai.NewClient(conf.OpenAI.Token)
+
 	telegramClient, err := tgbotapi.NewBotAPI(conf.Telegram.Token)
 	if err != nil {
 		return fmt.Errorf("error creating Telegram Bot API client: %w", err)
@@ -163,6 +167,7 @@ func Run(ctx context.Context) error {
 	defer checkpointService.Close()
 
 	bot := &botClient{
+		openAI:         openAI,
 		telegramClient: telegramClient,
 		chatID:         conf.Telegram.ChatID,
 	}

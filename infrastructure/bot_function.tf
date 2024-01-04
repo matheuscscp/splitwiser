@@ -67,6 +67,9 @@ resource "google_secret_manager_secret" "bot-config" {
 resource "google_secret_manager_secret_version" "bot-config" {
   secret = google_secret_manager_secret.bot-config.id
   secret_data = yamlencode({
+    "openai": {
+      "token": data.google_secret_manager_secret_version.bot-openai-token.secret_data,
+    },
     "telegram" : {
       "token" : data.google_secret_manager_secret_version.bot-telegram-token.secret_data,
       "chatID" : tonumber(data.google_secret_manager_secret_version.bot-telegram-chat-id.secret_data),
@@ -103,4 +106,8 @@ data "google_secret_manager_secret_version" "bot-splitwise-ana-id" {
 
 data "google_secret_manager_secret_version" "bot-splitwise-matheus-id" {
   secret = "bot-splitwise-matheus-id"
+}
+
+data "google_secret_manager_secret_version" "bot-openai-token" {
+  secret = "bot-openai-token"
 }
