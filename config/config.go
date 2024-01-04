@@ -12,6 +12,9 @@ import (
 type (
 	// Bot ...
 	Bot struct {
+		OpenAI struct {
+			Token string `yaml:"token"`
+		} `yaml:"openai"`
 		Telegram struct {
 			Token  string `yaml:"token"`
 			ChatID int64  `yaml:"chatID"`
