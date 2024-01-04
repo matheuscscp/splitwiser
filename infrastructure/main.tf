@@ -23,7 +23,7 @@ resource "google_storage_bucket" "source-code" {
 }
 
 resource "google_storage_bucket_object" "source-code" {
-  name   = data.archive_file.source-code.output_sha
+  name   = filesha256("./source.zip")
   bucket = google_storage_bucket.source-code.name
   source = "./source.zip"
 }
