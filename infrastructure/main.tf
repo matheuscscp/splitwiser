@@ -26,6 +26,7 @@ data "archive_file" "source-code" {
   type        = "zip"
   source_dir  = "./"
   output_path = "./source.zip"
+  excludes    = ["./source.zip"]
 }
 
 resource "google_storage_bucket_object" "source-code" {
