@@ -2,8 +2,11 @@ package bot
 
 import (
 	"context"
+	"encoding/base64"
 	"errors"
 	"fmt"
+	"io"
+	"net/http"
 	"regexp"
 	"runtime/debug"
 	"strings"
@@ -27,6 +30,7 @@ type (
 		chatID         int64
 		closed         bool
 		msgQueue       []string
+		fileURL        func(tgbotapi.File) string
 	}
 
 	botState int
@@ -140,6 +144,76 @@ Please choose the payer:
 	)
 }
 
+func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) string {
+	bc.send("Okay, I'm sending this image to OpenAI for processing...")
+	fd, err := bc.telegramClient.GetFile(tgbotapi.FileConfig{
+		FileID: update.Message.Photo[len(update.Message.Photo)-1].FileID,
+	})
+	if err != nil {
+		bc.send("I got this error trying to get a descriptor for the file you sent me:\n\n%v", err)
+		return ""
+	}
+	f, err := http.Get(bc.fileURL(fd))
+	if err != nil {
+		bc.send("I got this error trying to get the file you sent me:\n\n%v", err)
+		return ""
+	}
+	defer f.Body.Close()
+	b, err := io.ReadAll(f.Body)
+	if err != nil {
+		bc.send("I got this error trying to download the file you sent me:\n\n%v", err)
+		return ""
+	}
+	image := base64.StdEncoding.EncodeToString(b)
+	resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		MaxTokens: 4096,
+		Model:     openai.GPT4VisionPreview,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role: openai.ChatMessageRoleUser,
+				MultiContent: []openai.ChatMessagePart{
+					{
+						Type: openai.ChatMessagePartTypeText,
+						Text: `Hi! I'm Matheus' Telegram Bot for parsing his domestic receipts.
+
+Matheus programmed me to ask for your help when he sents photographs of his receipts to me.
+
+Please find attached a base64-encoded photograph of a receipt that Matheus sent to me.
+
+I need you to parse the photo and return the items in the exact example format below, because I'm
+not as smart as you and I need the items to be in this simple text format so my Go code can understand
+it easily.
+
+Please output only the items like in the example format below, and nothing else. Please don't write
+any greeting messages or anything like that, because that makes it harder for me to parse your
+results.
+
+Please send the result in a single long line, like the example below!
+
+Finally, here goes the example format:
+
+Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole Milk 2L 2.09 A Coca Cola Regular 6.20 C 2 x 3.10 Ready Salted Crisps 1.19 C Hummus Chips 1.49 C Vegan Ice Sticks Alm 2.99 C ------------ TOTAL 21.99
+`,
+					},
+					{
+						Type: openai.ChatMessagePartTypeImageURL,
+						ImageURL: &openai.ChatMessageImageURL{
+							URL: fmt.Sprintf("data:image/jpeg;base64,%s", image),
+						},
+					},
+				},
+			},
+		},
+	})
+	if err != nil {
+		bc.send("I got this error trying to upload the file you sent me to OpenAI:\n\n%v", err)
+		return ""
+	}
+	content := resp.Choices[0].Message.Content
+	bc.send("This is what OpenAI sent me:\n\n%s", content)
+	return content
+}
+
 // Run starts the bot and returns when the bot has finished processing all receipts.
 func Run(ctx context.Context) error {
 	startTime := time.Now()
@@ -170,6 +244,7 @@ func Run(ctx context.Context) error {
 		openAI:         openAI,
 		telegramClient: telegramClient,
 		chatID:         conf.Telegram.ChatID,
+		fileURL:        func(fd tgbotapi.File) string { return fd.Link(conf.Telegram.Token) },
 	}
 
 	logrus.Infof("Authenticated on Telegram bot account %s", bot.account())
@@ -253,6 +328,7 @@ func Run(ctx context.Context) error {
 		}
 		msg := update.Message.Text
 		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
+		logrus.WithField("msg", update.Message).Debug("msg")
 
 		// handle commands
 		if botState != botStateIdle && msg == "/abort" {
@@ -277,6 +353,12 @@ func Run(ctx context.Context) error {
 						logrus.Errorf("panic parsing input as receipt: %v\n%s", p, string(debug.Stack()))
 					}
 				}()
+
+				// handle photo input
+				if len(update.Message.Photo) > 0 {
+					msg = bot.handlePhoto(ctx, &update)
+				}
+
 				receipt = models.ParseReceipt(msg)
 			}()
 			if receipt.Len() > 0 {
