@@ -1,0 +1,21 @@
+on:
+  push:
+    branches: [main]
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment: terraform
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+    - uses: actions/checkout@v4
+    - uses: google-github-actions/auth@v2
+      with:
+        project_id: splitwiser-telegram-bot
+        workload_identity_provider: projects/440848479342/locations/global/workloadIdentityPools/github-actions/providers/github-actions
+        service_account: terraform@splitwiser-telegram-bot.iam.gserviceaccount.com
+    - uses: hashicorp/setup-terraform@v3
+    - run: zip -r source.zip . && ls -l
+    - run: terraform init && terraform apply -auto-approve
