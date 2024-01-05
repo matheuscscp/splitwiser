@@ -160,12 +160,15 @@ func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) s
 		return ""
 	}
 	image := base64.StdEncoding.EncodeToString(b)
-	multiContent := []openai.ChatMessagePart{
+	messages := []openai.ChatCompletionMessage{
 		{
-			Type: openai.ChatMessagePartTypeText,
-			Text: `Hi! I'm Matheus' Telegram Bot for parsing his domestic receipts.
+			Role: openai.ChatMessageRoleUser,
+			MultiContent: []openai.ChatMessagePart{
+				{
+					Type: openai.ChatMessagePartTypeText,
+					Text: `Hi! I'm Matheus' Telegram Bot for parsing his domestic receipts.
 
-Matheus programmed me to ask for your help when he sents photographs of his receipts to me.
+Matheus programmed me to ask for your help when he sends photographs of his receipts to me.
 
 Please find attached a base64-encoded photograph of a receipt that Matheus sent to me.
 
@@ -179,29 +182,26 @@ results.
 
 Please send the result in a single long line, like the example below!
 
-If there are fees at the end of the photo receipt, please include these fees as items.
+If there are fees at the end of the receipt photo, please include these fees as items.
 
 Finally, here goes the example format:
 
 Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole Milk 2L 2.09 A Coca Cola Regular 6.20 C 2 x 3.10 Ready Salted Crisps 1.19 C Hummus Chips 1.49 C Vegan Ice Sticks Alm 2.99 C ------------ TOTAL 21.99
 `,
-		},
-		{
-			Type: openai.ChatMessagePartTypeImageURL,
-			ImageURL: &openai.ChatMessageImageURL{
-				URL: fmt.Sprintf("data:image/jpeg;base64,%s", image),
+				},
+				{
+					Type: openai.ChatMessagePartTypeImageURL,
+					ImageURL: &openai.ChatMessageImageURL{
+						URL: fmt.Sprintf("data:image/jpeg;base64,%s", image),
+					},
+				},
 			},
 		},
 	}
 	resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 		MaxTokens: 4096,
 		Model:     openai.GPT4VisionPreview,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role:         openai.ChatMessageRoleUser,
-				MultiContent: multiContent,
-			},
-		},
+		Messages:  messages,
 	})
 	if err != nil {
 		bc.send("I got this error trying to upload the file you sent me to OpenAI:\n\n%v", err)
@@ -229,19 +229,14 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 				return ""
 			}
 			bc.send("Okay I'm forwarding this follow-up prompt to OpenAI...")
-			multiContent = append(multiContent, openai.ChatMessagePart{
-				Type: openai.ChatMessagePartTypeText,
-				Text: strings.TrimSpace(msg),
+			messages = append(messages, resp.Choices[0].Message, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: strings.TrimSpace(msg),
 			})
 			resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 				MaxTokens: 4096,
 				Model:     openai.GPT4VisionPreview,
-				Messages: []openai.ChatCompletionMessage{
-					{
-						Role:         openai.ChatMessageRoleUser,
-						MultiContent: multiContent,
-					},
-				},
+				Messages:  messages,
 			})
 			if err != nil {
 				bc.send("I got this error following up with OpenAI:\n\n%v", err)
