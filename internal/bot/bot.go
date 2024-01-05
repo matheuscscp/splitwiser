@@ -226,7 +226,7 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 			case tl == "y" || tl == "yes":
 				return content
 			case tl == "n" || tl == "no":
-				return content
+				return ""
 			}
 			bc.send("Okay I'm forwarding this follow-up prompt to OpenAI...")
 			multiContent = append(multiContent, openai.ChatMessagePart{
@@ -395,6 +395,14 @@ func Run(ctx context.Context) error {
 
 		switch botState {
 		case botStateIdle:
+			// handle photo input
+			if len(update.Message.Photo) > 0 {
+				msg = bot.handlePhoto(ctx, &update)
+				if msg == "" {
+					continue
+				}
+			}
+
 			func() {
 				defer func() {
 					if p := recover(); p != nil {
@@ -402,14 +410,9 @@ func Run(ctx context.Context) error {
 						logrus.Errorf("panic parsing input as receipt: %v\n%s", p, string(debug.Stack()))
 					}
 				}()
-
-				// handle photo input
-				if len(update.Message.Photo) > 0 {
-					msg = bot.handlePhoto(ctx, &update)
-				}
-
 				receipt = models.ParseReceipt(msg)
 			}()
+
 			if receipt.Len() > 0 {
 				storeCheckpoint()
 				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
