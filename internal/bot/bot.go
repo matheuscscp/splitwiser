@@ -25,12 +25,13 @@ import (
 
 type (
 	botClient struct {
+		conf           *config.Bot
 		openAI         *openai.Client
 		telegramClient *tgbotapi.BotAPI
 		chatID         int64
 		closed         bool
 		msgQueue       []string
-		fileURL        func(tgbotapi.File) string
+		updateChannel  tgbotapi.UpdatesChannel
 	}
 
 	botState int
@@ -55,12 +56,6 @@ var (
 
 func (b *botClient) account() string {
 	return b.telegramClient.Self.UserName
-}
-
-func (b *botClient) getUpdatesChannel() tgbotapi.UpdatesChannel {
-	conf := tgbotapi.NewUpdate(0 /*offset*/)
-	conf.Timeout = int(botLongPollingTimeout.Seconds())
-	return b.telegramClient.GetUpdatesChan(conf)
 }
 
 func (b *botClient) shutdown() {
@@ -153,7 +148,7 @@ func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) s
 		bc.send("I got this error trying to get a descriptor for the file you sent me:\n\n%v", err)
 		return ""
 	}
-	f, err := http.Get(bc.fileURL(fd))
+	f, err := http.Get(fd.Link(bc.conf.Telegram.Token))
 	if err != nil {
 		bc.send("I got this error trying to get the file you sent me:\n\n%v", err)
 		return ""
@@ -165,16 +160,10 @@ func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) s
 		return ""
 	}
 	image := base64.StdEncoding.EncodeToString(b)
-	resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		MaxTokens: 4096,
-		Model:     openai.GPT4VisionPreview,
-		Messages: []openai.ChatCompletionMessage{
-			{
-				Role: openai.ChatMessageRoleUser,
-				MultiContent: []openai.ChatMessagePart{
-					{
-						Type: openai.ChatMessagePartTypeText,
-						Text: `Hi! I'm Matheus' Telegram Bot for parsing his domestic receipts.
+	multiContent := []openai.ChatMessagePart{
+		{
+			Type: openai.ChatMessagePartTypeText,
+			Text: `Hi! I'm Matheus' Telegram Bot for parsing his domestic receipts.
 
 Matheus programmed me to ask for your help when he sents photographs of his receipts to me.
 
@@ -190,18 +179,27 @@ results.
 
 Please send the result in a single long line, like the example below!
 
+If there are fees at the end of the photo receipt, please include these fees as items.
+
 Finally, here goes the example format:
 
 Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole Milk 2L 2.09 A Coca Cola Regular 6.20 C 2 x 3.10 Ready Salted Crisps 1.19 C Hummus Chips 1.49 C Vegan Ice Sticks Alm 2.99 C ------------ TOTAL 21.99
 `,
-					},
-					{
-						Type: openai.ChatMessagePartTypeImageURL,
-						ImageURL: &openai.ChatMessageImageURL{
-							URL: fmt.Sprintf("data:image/jpeg;base64,%s", image),
-						},
-					},
-				},
+		},
+		{
+			Type: openai.ChatMessagePartTypeImageURL,
+			ImageURL: &openai.ChatMessageImageURL{
+				URL: fmt.Sprintf("data:image/jpeg;base64,%s", image),
+			},
+		},
+	}
+	resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+		MaxTokens: 4096,
+		Model:     openai.GPT4VisionPreview,
+		Messages: []openai.ChatCompletionMessage{
+			{
+				Role:         openai.ChatMessageRoleUser,
+				MultiContent: multiContent,
 			},
 		},
 	})
@@ -210,8 +208,56 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 		return ""
 	}
 	content := resp.Choices[0].Message.Content
-	bc.send("This is what OpenAI sent me:\n\n%s", content)
-	return content
+	askIfResultIsEnough := func() {
+		bc.send("This is what OpenAI sent me:\n\n%s\n\nShould I parse this? (Yes/No or a follow-up message for OpenAI)", content)
+	}
+	askIfResultIsEnough()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return ""
+		case followup := <-bc.updateChannel:
+			if bc.shouldSkip(&followup) {
+				continue
+			}
+			msg := followup.Message.Text
+			switch tl := strings.ToLower(msg); {
+			case tl == "y" || tl == "yes":
+				return content
+			case tl == "n" || tl == "no":
+				return content
+			}
+			bc.send("Okay I'm forwarding this follow-up prompt to OpenAI...")
+			multiContent = append(multiContent, openai.ChatMessagePart{
+				Type: openai.ChatMessagePartTypeText,
+				Text: strings.TrimSpace(msg),
+			})
+			resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
+				MaxTokens: 4096,
+				Model:     openai.GPT4VisionPreview,
+				Messages: []openai.ChatCompletionMessage{
+					{
+						Role:         openai.ChatMessageRoleUser,
+						MultiContent: multiContent,
+					},
+				},
+			})
+			if err != nil {
+				bc.send("I got this error following up with OpenAI:\n\n%v", err)
+				return ""
+			}
+			content = resp.Choices[0].Message.Content
+			askIfResultIsEnough()
+		}
+	}
+}
+
+func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
+	return b.closed ||
+		update.Message == nil ||
+		update.Message.Chat.ID != b.conf.Telegram.ChatID ||
+		regexCya.MatchString(update.Message.Text)
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
@@ -240,11 +286,16 @@ func Run(ctx context.Context) error {
 	}
 	defer checkpointService.Close()
 
+	updateConf := tgbotapi.NewUpdate(0 /*offset*/)
+	updateConf.Timeout = int(botLongPollingTimeout.Seconds())
+	updateChannel := telegramClient.GetUpdatesChan(updateConf)
+
 	bot := &botClient{
+		conf:           &conf,
 		openAI:         openAI,
 		telegramClient: telegramClient,
 		chatID:         conf.Telegram.ChatID,
-		fileURL:        func(fd tgbotapi.File) string { return fd.Link(conf.Telegram.Token) },
+		updateChannel:  updateChannel,
 	}
 
 	logrus.Infof("Authenticated on Telegram bot account %s", bot.account())
@@ -319,13 +370,11 @@ func Run(ctx context.Context) error {
 		createExpense("shared", expense, storeName)
 	}
 
-	for update := range bot.getUpdatesChannel() {
-		if bot.closed ||
-			update.Message == nil ||
-			update.Message.Chat.ID != conf.Telegram.ChatID ||
-			regexCya.MatchString(update.Message.Text) {
+	for update := range updateChannel {
+		if bot.shouldSkip(&update) {
 			continue
 		}
+
 		msg := update.Message.Text
 		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
 		logrus.WithField("msg", update.Message).Debug("msg")
