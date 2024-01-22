@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"regexp"
 	"runtime/debug"
+	"strconv"
 	"strings"
 	"time"
 
@@ -249,17 +250,14 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 }
 
 func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
-	if update.Message.Chat.ID != b.conf.Telegram.ChatID {
-		logrus.WithField("chat_id", update.Message.Chat.ID).Warn("unallowed chat id")
-	}
 	return b.closed ||
 		update.Message == nil ||
-		update.Message.Chat.ID != b.conf.Telegram.ChatID ||
+		update.Message.Chat.ID != b.chatID ||
 		regexCya.MatchString(update.Message.Text)
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
-func Run(ctx context.Context) error {
+func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 	startTime := time.Now()
 	ctx, cancel := context.WithTimeout(ctx, botTimeout)
 	defer cancel()
@@ -288,11 +286,21 @@ func Run(ctx context.Context) error {
 	updateConf.Timeout = int(botLongPollingTimeout.Seconds())
 	updateChannel := telegramClient.GetUpdatesChan(updateConf)
 
+	chatIDs := strings.Split(conf.Telegram.ChatID, ",")
+	chatIDStr := chatIDs[0]
+	if user == models.Ana {
+		chatIDStr = chatIDs[len(chatIDs)-1]
+	}
+	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
+	if err != nil {
+		return fmt.Errorf("error parsing chat id for user '%s': %w", user, err)
+	}
+
 	bot := &botClient{
 		conf:           &conf,
 		openAI:         openAI,
 		telegramClient: telegramClient,
-		chatID:         conf.Telegram.ChatID,
+		chatID:         chatID,
 		updateChannel:  updateChannel,
 	}
 
