@@ -10,6 +10,7 @@ import (
 
 	"github.com/matheuscscp/splitwiser/config"
 	_ "github.com/matheuscscp/splitwiser/logging"
+	"github.com/matheuscscp/splitwiser/models"
 	"github.com/matheuscscp/splitwiser/services/events"
 	"github.com/matheuscscp/splitwiser/services/secrets"
 
@@ -282,7 +283,13 @@ func (c *controller) checkPassword() error {
 }
 
 func (c *controller) startBot() error {
-	serverID, err := c.eventsService.Publish(c.r.Context(), c.conf.TopicID, []byte("start"))
+	var user models.ReceiptItemOwner
+	user = models.ReceiptItemOwner(strings.TrimSpace(c.r.URL.Query().Get("u")))
+	if user == "" || (user != models.Matheus && user != models.Ana) {
+		user = models.Matheus
+	}
+	msg := fmt.Sprintf("start-%s", user)
+	serverID, err := c.eventsService.Publish(c.r.Context(), c.conf.TopicID, []byte(msg))
 	if err != nil {
 		if errors.Is(err, events.ErrServiceNotConfigured) {
 			logrus.Error("cannot publish start-bot event, events service is not configured")
