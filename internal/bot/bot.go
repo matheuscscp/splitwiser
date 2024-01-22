@@ -249,6 +249,9 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 }
 
 func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
+	if update.Message.Chat.ID != b.conf.Telegram.ChatID {
+		logrus.WithField("chat_id", update.Message.Chat.ID).Warn("unallowed chat id")
+	}
 	return b.closed ||
 		update.Message == nil ||
 		update.Message.Chat.ID != b.conf.Telegram.ChatID ||
