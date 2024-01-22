@@ -72,7 +72,7 @@ resource "google_secret_manager_secret_version" "bot-config" {
     },
     "telegram" : {
       "token" : data.google_secret_manager_secret_version.bot-telegram-token.secret_data,
-      "chatID" : tonumber(data.google_secret_manager_secret_version.bot-telegram-chat-id.secret_data),
+      "chatID" : data.google_secret_manager_secret_version.bot-telegram-chat-id.secret_data,
     },
     "splitwise" : {
       "token" : data.google_secret_manager_secret_version.bot-splitwise-token.secret_data,
