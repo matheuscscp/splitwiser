@@ -27,10 +27,9 @@ type (
 )
 
 const (
-	Ana            ReceiptItemOwner = "a"
-	Matheus        ReceiptItemOwner = "m"
-	Shared         ReceiptItemOwner = "s"
-	NotReceiptItem ReceiptItemOwner = "n"
+	Ana     ReceiptItemOwner = "a"
+	Matheus ReceiptItemOwner = "m"
+	Shared  ReceiptItemOwner = "s"
 
 	zeroCents PriceInCents = 0
 )
@@ -66,7 +65,7 @@ func parseLidlReceipt(receiptText string) (receipt Receipt) {
 		receipt = append(receipt, &ReceiptItem{
 			MainLine: strings.Join(mainLineToks, " "),
 			NextLine: strings.Join(nextLineToks, " "),
-			Price:    parsePriceToCents(tokens[priceIdx]),
+			Price:    ParsePriceToCents(tokens[priceIdx]),
 		})
 	}
 	return
@@ -94,7 +93,7 @@ func parseItemListFollowedByPriceList(receiptLines []string) (receipt Receipt) {
 	for i := 0; i < n; i++ {
 		receipt[i] = &ReceiptItem{
 			MainLine: receiptLines[i],
-			Price:    parsePriceToCents(receiptLines[i+n]),
+			Price:    ParsePriceToCents(receiptLines[i+n]),
 		}
 	}
 	return
@@ -184,7 +183,7 @@ func (r Receipt) NextItem(curItem int) int {
 	return (curItem + 1) % r.Len()
 }
 
-func parsePriceToCents(tok string) PriceInCents {
+func ParsePriceToCents(tok string) PriceInCents {
 	m := regexPriceToken.FindStringSubmatch(tok)
 	eurosStr, centsStr := m[3], m[4]
 	eurosStr = regexPriceOAsZero.ReplaceAllString(eurosStr, "0")
