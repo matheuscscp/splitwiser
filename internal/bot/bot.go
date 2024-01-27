@@ -47,6 +47,8 @@ const (
 	botLongPollingTimeout = 60 * time.Second
 	botTimeout            = 540*time.Second - botLongPollingTimeout - 5*time.Second
 
+	newPrice         = "p"
+	notReceiptItem   = "n"
 	delayDecision    = "d"
 	undoLastDecision = "u"
 )
@@ -93,10 +95,11 @@ func (b *botClient) sendReceiptItem(item *models.ReceiptItem, lastModifiedReceip
 (see if the next line rings a bell: "%s")
 
 Please choose the owner:
-%s - Ana
-%s - Matheus
-%s - Shared
+%s - Set owned by Ana
+%s - Set owned by Matheus
+%s - Set owned by both (shared)
 %s - Not a receipt item
+%s <new_price> - Set new price
 %s - Delay item decision%s`,
 		item.MainLine,
 		item.Price,
@@ -104,7 +107,8 @@ Please choose the owner:
 		models.Ana,
 		models.Matheus,
 		models.Shared,
-		models.NotReceiptItem,
+		notReceiptItem,
+		newPrice,
 		delayDecision,
 		undo,
 	)
@@ -116,8 +120,8 @@ func (b *botClient) sendOwnerChoice(lastModifiedReceiptItem int) {
 		undo = fmt.Sprintf(", %s", undoLastDecision)
 	}
 	b.send(
-		"Invalid choice. Choose one of {%s, %s, %s, %s, %s%s}.",
-		models.Ana, models.Matheus, models.Shared, models.NotReceiptItem, delayDecision, undo,
+		"Invalid choice. Choose one of {%s, %s, %s, %s, %s, %s%s}.",
+		models.Ana, models.Matheus, models.Shared, newPrice, notReceiptItem, delayDecision, undo,
 	)
 }
 
@@ -427,42 +431,38 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				bot.send("I can't understand that. Let's try again.")
 			}
 		case botStateParsingReceiptInteractively:
-			input := models.ReceiptItemOwner(msg)
-			if input != models.Ana &&
-				input != models.Matheus &&
-				input != models.Shared &&
-				input != models.NotReceiptItem &&
-				input != delayDecision &&
-				(input != undoLastDecision || lastModifiedReceiptItem < 0) {
+			switch {
+			case msg == string(models.Ana) || msg == string(models.Matheus) || msg == string(models.Shared) || msg == notReceiptItem:
+				receipt[nextReceiptItem].Owner = models.ReceiptItemOwner(msg)
+				lastModifiedReceiptItem = nextReceiptItem
+				nextReceiptItem = receipt.NextItem(nextReceiptItem)
+				for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
+					nextReceiptItem = receipt.NextItem(nextReceiptItem)
+				}
+				storeCheckpoint()
+			case strings.HasPrefix(msg, newPrice+" "):
+				receipt[nextReceiptItem].Price = models.ParsePriceToCents(msg[len(newPrice+" "):])
+				storeCheckpoint()
+			case msg == delayDecision:
+				nextReceiptItem = receipt.NextItem(nextReceiptItem)
+				for receipt[nextReceiptItem].Owner != "" {
+					nextReceiptItem = receipt.NextItem(nextReceiptItem)
+				}
+			case msg == undoLastDecision && lastModifiedReceiptItem >= 0:
+				nextReceiptItem = lastModifiedReceiptItem
+				lastModifiedReceiptItem = -1
+				receipt[nextReceiptItem].Owner = ""
+				storeCheckpoint()
+			default:
 				bot.sendOwnerChoice(lastModifiedReceiptItem)
-			} else {
-				// process owner input
-				if input != delayDecision && input != undoLastDecision {
-					receipt[nextReceiptItem].Owner = input
-					lastModifiedReceiptItem = nextReceiptItem
-					nextReceiptItem = receipt.NextItem(nextReceiptItem)
-					for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
-						nextReceiptItem = receipt.NextItem(nextReceiptItem)
-					}
-					storeCheckpoint()
-				} else if input == delayDecision {
-					nextReceiptItem = receipt.NextItem(nextReceiptItem)
-					for receipt[nextReceiptItem].Owner != "" {
-						nextReceiptItem = receipt.NextItem(nextReceiptItem)
-					}
-				} else { // input == undoLastDecision
-					nextReceiptItem = lastModifiedReceiptItem
-					lastModifiedReceiptItem = -1
-					receipt[nextReceiptItem].Owner = ""
-					storeCheckpoint()
-				}
+				continue
+			}
 
-				if receipt[nextReceiptItem].Owner == "" {
-					bot.sendReceiptItem(receipt[nextReceiptItem], lastModifiedReceiptItem)
-				} else {
-					bot.sendPayerChoice(receipt)
-					botState = botStateWaitingForPayer
-				}
+			if receipt[nextReceiptItem].Owner == "" {
+				bot.sendReceiptItem(receipt[nextReceiptItem], lastModifiedReceiptItem)
+			} else {
+				bot.sendPayerChoice(receipt)
+				botState = botStateWaitingForPayer
 			}
 		case botStateWaitingForPayer:
 			payer = models.ReceiptItemOwner(msg)
