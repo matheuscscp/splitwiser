@@ -431,6 +431,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				bot.send("I can't understand that. Let's try again.")
 			}
 		case botStateParsingReceiptInteractively:
+			msg = strings.TrimSpace(strings.ToLower(msg))
 			switch {
 			case msg == string(models.Ana) || msg == string(models.Matheus) || msg == string(models.Shared) || msg == notReceiptItem:
 				receipt[nextReceiptItem].Owner = models.ReceiptItemOwner(msg)
