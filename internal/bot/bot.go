@@ -466,7 +466,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				botState = botStateWaitingForPayer
 			}
 		case botStateWaitingForPayer:
-			payer = models.ReceiptItemOwner(msg)
+			payer = models.ReceiptItemOwner(strings.TrimSpace(strings.ToLower(msg)))
 			if payer != models.Ana && payer != models.Matheus {
 				bot.send("Invalid choice. Choose one of {%s, %s}.", models.Ana, models.Matheus)
 			} else {
