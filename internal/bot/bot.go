@@ -3,12 +3,12 @@ package bot
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"io"
 	"net/http"
 	"regexp"
-	"runtime/debug"
 	"strconv"
 	"strings"
 	"time"
@@ -90,9 +90,7 @@ func (b *botClient) sendReceiptItem(item *models.ReceiptItem, lastModifiedReceip
 	if lastModifiedReceiptItem >= 0 {
 		undo = fmt.Sprintf("\n%s - Undo last decision", undoLastDecision)
 	}
-	b.send(`Item: "%s" (%v)
-
-(see if the next line rings a bell: "%s")
+	b.send(`%s (%s)
 
 Please choose the owner:
 %s - Set owned by Ana
@@ -101,9 +99,8 @@ Please choose the owner:
 %s - Not a receipt item
 %s <new_price> - Set new price
 %s - Delay item decision%s`,
-		item.MainLine,
+		item.Name,
 		item.Price,
-		item.NextLine,
 		models.Ana,
 		models.Matheus,
 		models.Shared,
@@ -126,43 +123,49 @@ func (b *botClient) sendOwnerChoice(lastModifiedReceiptItem int) {
 }
 
 func (b *botClient) sendPayerChoice(receipt models.Receipt) {
-	totalsInCents, totalInCents := receipt.ComputeTotals()
+	ownerTotals, total, totalWithDiscounts := receipt.ComputeTotals()
 	b.send(`Ana's total: %v
-Matheus's total: %v
+Matheus' total: %v
 Shared total: %v
-Overall total: %v
+Total: %v
+Total with discounts: %v
 
 Please choose the payer:
 %s - Ana
 %s - Matheus`,
-		totalsInCents[models.Ana],
-		totalsInCents[models.Matheus],
-		totalsInCents[models.Shared],
-		totalInCents,
+		ownerTotals[models.Ana],
+		ownerTotals[models.Matheus],
+		ownerTotals[models.Shared],
+		total,
+		totalWithDiscounts,
 		models.Ana,
 		models.Matheus,
 	)
 }
 
-func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) string {
+func (b *botClient) sendMoreReceipts() {
+	b.send("More receipts?")
+}
+
+func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) models.Receipt {
 	bc.send("Okay, I'm sending this image to OpenAI for processing...")
 	fd, err := bc.telegramClient.GetFile(tgbotapi.FileConfig{
 		FileID: update.Message.Photo[len(update.Message.Photo)-1].FileID,
 	})
 	if err != nil {
 		bc.send("I got this error trying to get a descriptor for the file you sent me:\n\n%v", err)
-		return ""
+		return nil
 	}
 	f, err := http.Get(fd.Link(bc.conf.Telegram.Token))
 	if err != nil {
 		bc.send("I got this error trying to get the file you sent me:\n\n%v", err)
-		return ""
+		return nil
 	}
 	defer f.Body.Close()
 	b, err := io.ReadAll(f.Body)
 	if err != nil {
 		bc.send("I got this error trying to download the file you sent me:\n\n%v", err)
-		return ""
+		return nil
 	}
 	image := base64.StdEncoding.EncodeToString(b)
 	messages := []openai.ChatCompletionMessage{
@@ -177,22 +180,31 @@ Matheus programmed me to ask for your help when he sends photographs of his rece
 
 Please find attached a base64-encoded photograph of a receipt that Matheus sent to me.
 
-I need you to parse the photo and return the items in the exact example format below, because I'm
+I need you to parse the photo and return the items in the exact example JSON format below, because I'm
 not as smart as you and I need the items to be in this simple text format so my Go code can understand
 it easily.
 
 Please output only the items like in the example format below, and nothing else. Please don't write
 any greeting messages or anything like that, because that makes it harder for me to parse your
-results.
-
-Please send the result in a single long line, like the example below!
+results. Just return me a valid JSON array like the one below. Please do not include the backticks
+wrapper.
 
 If there are fees at the end of the receipt photo, please include these fees as items.
+Discounts should also be included and have negative prices.
 
-Finally, here goes the example format:
+Finally, here goes the example JSON format:
 
-Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole Milk 2L 2.09 A Coca Cola Regular 6.20 C 2 x 3.10 Ready Salted Crisps 1.19 C Hummus Chips 1.49 C Vegan Ice Sticks Alm 2.99 C ------------ TOTAL 21.99
-`,
+[
+	{"name":"Smoky BBQ wings","euro_cents":399},
+	{"name":"Smoky BBQ wings Discount","euro_cents":-399},
+	{"name":"PopChips BBQ 5pk","euro_cents":249},
+	{"name":"RedHen Chicken Dippe","euro_cents":155},
+	{"name":"Whole Milk 2L","euro_cents":209},
+	{"name":"Coca Cola Regular","euro_cents":620},
+	{"name":"Ready Salted Crisps","euro_cents":119},
+	{"name":"Hummus Chips","euro_cents":149},
+	{"name":"Vegan Ice Sticks Alm","euro_cents":299}
+]`,
 				},
 				{
 					Type: openai.ChatMessagePartTypeImageURL,
@@ -203,51 +215,79 @@ Smoky BBQ wings 3.99 A PopChips BBQ 5pk 2.49 C RedHen Chicken Dippe 1.55 A Whole
 			},
 		},
 	}
-	resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
-		MaxTokens: 4096,
-		Model:     openai.GPT4VisionPreview,
-		Messages:  messages,
-	})
-	if err != nil {
-		bc.send("I got this error trying to upload the file you sent me to OpenAI:\n\n%v", err)
-		return ""
-	}
-	content := resp.Choices[0].Message.Content
-	askIfResultIsEnough := func() {
-		bc.send("This is what OpenAI sent me:\n\n%s\n\nShould I parse this? (Yes/No or a follow-up message for OpenAI)", content)
-	}
-	askIfResultIsEnough()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return ""
-		case followup := <-bc.updateChannel:
-			if bc.shouldSkip(&followup) {
-				continue
-			}
-			msg := followup.Message.Text
-			switch tl := strings.ToLower(msg); {
-			case tl == "y" || tl == "yes":
-				return content
-			case tl == "n" || tl == "no":
-				return ""
-			}
-			bc.send("Okay I'm forwarding this follow-up prompt to OpenAI...")
-			messages = append(messages, resp.Choices[0].Message, openai.ChatCompletionMessage{
-				Role:    openai.ChatMessageRoleUser,
-				Content: strings.TrimSpace(msg),
-			})
+	var lastMessageFromOpenAI openai.ChatCompletionMessage
+	var receipt models.Receipt
+	parsePhoto := func() error {
+		for {
 			resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 				MaxTokens: 4096,
 				Model:     openai.GPT4VisionPreview,
 				Messages:  messages,
 			})
 			if err != nil {
-				bc.send("I got this error following up with OpenAI:\n\n%v", err)
-				return ""
+				bc.send("OpenAI replied an error:\n\n%v", err)
+				return err
 			}
-			content = resp.Choices[0].Message.Content
+			lastMessageFromOpenAI = resp.Choices[0].Message
+			if err := json.Unmarshal([]byte(lastMessageFromOpenAI.Content), &receipt); err != nil {
+				bc.send(`OpenAI replied an invalid JSON. This is a dumb error, I'm just gonna retry for you.
+
+Error: %v
+
+Content:
+
+%s`, err, lastMessageFromOpenAI.Content)
+				continue
+			}
+			return nil
+		}
+	}
+	askIfResultIsEnough := func() {
+		bc.send(`Here are the items and prices from OpenAI:
+
+%s
+
+Don't worry about the prices, you will can fix them later. And if OpenAI added some fake items you can also skip them later.
+
+Just check if OpenAI forgot some items that are clearly part of the receipt. Fees and discounts should be included.
+
+To continue parsing this receipt, enter y/yes.
+
+To abort this receipt, enter n/no.
+
+To send a follow-up message to OpenAI asking for changes in this receipt, just type in the prompt in natural language.`,
+			receipt,
+		)
+	}
+	if parsePhoto() != nil {
+		return nil
+	}
+	askIfResultIsEnough()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return nil
+		case followup := <-bc.updateChannel:
+			if bc.shouldSkip(&followup) {
+				continue
+			}
+			msg := followup.Message.Text
+			switch tl := strings.ToLower(strings.TrimSpace(msg)); {
+			case tl == "y" || tl == "yes":
+				return receipt
+			case tl == "n" || tl == "no":
+				bc.sendMoreReceipts()
+				return nil
+			}
+			bc.send("Okay, I'm forwarding this follow-up prompt to OpenAI...")
+			messages = append(messages, lastMessageFromOpenAI, openai.ChatCompletionMessage{
+				Role:    openai.ChatMessageRoleUser,
+				Content: strings.TrimSpace(msg),
+			})
+			if parsePhoto() != nil {
+				return nil
+			}
 			askIfResultIsEnough()
 		}
 	}
@@ -330,7 +370,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 		if !errors.Is(err, checkpoint.ErrCheckpointNotExist) {
 			bot.enqueue("I had an unexpected error loading the checkpoint: %v", err)
 		}
-		bot.send("Let's start a new receipt. Please send it my way.")
+		bot.send("Let's parse a receipt. Please send it my way. I can understand screenshots, photographs and text messages.")
 		receipt = nil
 	} else {
 		bot.enqueue("I found a previous receipt, let's finish it.")
@@ -365,7 +405,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 		nextReceiptItem = 0
 		lastModifiedReceiptItem = -1
 
-		bot.send("More receipts?")
+		bot.sendMoreReceipts()
 	}
 
 	createExpense := func(expenseType string, expense *models.Expense, storeName string) {
@@ -405,30 +445,20 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 
 		switch botState {
 		case botStateIdle:
-			// handle photo input
 			if len(update.Message.Photo) > 0 {
-				msg = bot.handlePhoto(ctx, &update)
-				if msg == "" {
-					continue
+				receipt = bot.handlePhoto(ctx, &update)
+			} else {
+				receipt = models.ParseReceipt(msg)
+				if receipt.Len() == 0 {
+					bot.send("I can't understand that. Let's try again.")
+				} else {
+					bot.send("Let's parse the following receipt:\n\n%s", receipt)
 				}
 			}
-
-			func() {
-				defer func() {
-					if p := recover(); p != nil {
-						receipt = nil
-						logrus.Errorf("panic parsing input as receipt: %v\n%s", p, string(debug.Stack()))
-					}
-				}()
-				receipt = models.ParseReceipt(msg)
-			}()
-
 			if receipt.Len() > 0 {
 				storeCheckpoint()
 				bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
 				botState = botStateParsingReceiptInteractively
-			} else {
-				bot.send("I can't understand that. Let's try again.")
 			}
 		case botStateParsingReceiptInteractively:
 			msg = strings.TrimSpace(strings.ToLower(msg))
@@ -442,7 +472,12 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				}
 				storeCheckpoint()
 			case strings.HasPrefix(msg, newPrice+" "):
-				receipt[nextReceiptItem].Price = models.ParsePriceToCents(msg[len(newPrice+" "):])
+				price, ok := models.ParsePriceInCents(msg[len(newPrice+" "):])
+				if !ok {
+					bot.send("I can't understand that price, please try again.")
+					continue
+				}
+				receipt[nextReceiptItem].Price = price
 				storeCheckpoint()
 			case msg == delayDecision:
 				nextReceiptItem = receipt.NextItem(nextReceiptItem)
