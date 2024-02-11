@@ -8,21 +8,16 @@ import (
 )
 
 type (
-	// Receipt ...
 	Receipt []*ReceiptItem
 
-	// ReceiptItem ...
 	ReceiptItem struct {
-		MainLine string
-		NextLine string
-		Price    PriceInCents
-		Owner    ReceiptItemOwner
+		Name  string           `json:"name"`
+		Price PriceInCents     `json:"euro_cents"`
+		Owner ReceiptItemOwner `json:"owner"`
 	}
 
-	// PriceInCents ...
 	PriceInCents int
 
-	// ReceiptItemOwner ...
 	ReceiptItemOwner string
 )
 
@@ -35,45 +30,14 @@ const (
 )
 
 var (
-	regexSpaces                  = regexp.MustCompile(`\s+`)
-	regexPriceToken              = regexp.MustCompile(`^\s*((E|F)UR|€){0,1}([0-9oO]+)\.([0-9oO]{1,2})[V]{0,1}\s*$`)
-	regexPriceOAsZero            = regexp.MustCompile(`[oO]`)
-	regexTescoSingleAsteriskLine = regexp.MustCompile(`^\s*\*\s*$`)
+	regexSpaces     = regexp.MustCompile(`\s+`)
+	regexPriceToken = regexp.MustCompile(`^\s*(-{0,1})([0-9]*)((\.([0-9]{1,2})){0,1})\s*$`)
 )
 
-// ParseReceipt ...
 func ParseReceipt(receiptText string) (receipt Receipt) {
-	lines := strings.Split(receiptText, "\n")
-	if len(lines) == 1 {
-		return parseLidlReceipt(receiptText)
-	} else {
-		return parseItemListFollowedByPriceList(lines)
-	}
-}
-
-func parseLidlReceipt(receiptText string) (receipt Receipt) {
-	tokens, priceIdxs := parseLidlReceiptTokens(receiptText)
-	for i := 1; i < len(priceIdxs)-1; i++ {
-		prevPriceIdx := priceIdxs[i-1]
-		priceIdx := priceIdxs[i]
-		nextPriceIdx := priceIdxs[i+1]
-		mainLineToks := tokens[prevPriceIdx+1 : priceIdx]
-		nextLineToks := tokens[priceIdx+1 : nextPriceIdx]
-		if nextPriceIdx < len(tokens) {
-			nextLineToks = append(nextLineToks, tokens[nextPriceIdx])
-		}
-		receipt = append(receipt, &ReceiptItem{
-			MainLine: strings.Join(mainLineToks, " "),
-			NextLine: strings.Join(nextLineToks, " "),
-			Price:    ParsePriceToCents(tokens[priceIdx]),
-		})
-	}
-	return
-}
-
-func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
-	priceIdxs = append(priceIdxs, -1)
-	for _, tok := range regexSpaces.Split(receipt, -1) {
+	var tokens []string
+	priceIdxs := []int{-1}
+	for _, tok := range regexSpaces.Split(receiptText, -1) {
 		if tok == "" {
 			continue
 		}
@@ -82,56 +46,41 @@ func parseLidlReceiptTokens(receipt string) (tokens []string, priceIdxs []int) {
 		}
 		tokens = append(tokens, tok)
 	}
-	priceIdxs = append(priceIdxs, len(tokens))
-	return
-}
-
-func parseItemListFollowedByPriceList(receiptLines []string) (receipt Receipt) {
-	receiptLines = removeTescoSingleAsteriskLines(receiptLines)
-	n := len(receiptLines) / 2
-	receipt = make(Receipt, n)
-	for i := 0; i < n; i++ {
-		receipt[i] = &ReceiptItem{
-			MainLine: receiptLines[i],
-			Price:    ParsePriceToCents(receiptLines[i+n]),
-		}
+	for i := 1; i < len(priceIdxs); i++ {
+		priceIdx := priceIdxs[i]
+		nameTokens := tokens[priceIdxs[i-1]+1 : priceIdx]
+		receipt = append(receipt, &ReceiptItem{
+			Name:  strings.Join(nameTokens, " "),
+			Price: MustParsePriceInCents(tokens[priceIdx]),
+		})
 	}
 	return
 }
 
-func removeTescoSingleAsteriskLines(receiptLines []string) []string {
-	var ret []string
-	for _, s := range receiptLines {
-		if !regexTescoSingleAsteriskLine.MatchString(s) {
-			ret = append(ret, s)
-		}
-	}
-	return ret
-}
-
-// ComputeTotals ...
-func (r Receipt) ComputeTotals() (map[ReceiptItemOwner]PriceInCents, PriceInCents) {
-	totalsInCents := make(map[ReceiptItemOwner]PriceInCents)
-	var totalInCents PriceInCents
+func (r Receipt) ComputeTotals() (ownerTotals map[ReceiptItemOwner]PriceInCents,
+	total PriceInCents, totalWithDiscounts PriceInCents) {
+	ownerTotals = make(map[ReceiptItemOwner]PriceInCents)
 	for _, item := range r {
 		if item.Owner == Ana || item.Owner == Matheus || item.Owner == Shared {
-			totalsInCents[item.Owner] += item.Price
-			totalInCents += item.Price
+			ownerTotals[item.Owner] += item.Price
+			totalWithDiscounts += item.Price
+			if item.Price > 0 {
+				total += item.Price
+			}
 		}
 	}
-	return totalsInCents, totalInCents
+	return
 }
 
-// ComputeExpenses ...
 func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 	nonSharedExpense *Expense,
 	sharedExpense *Expense,
 ) {
-	totalsInCents, _ := r.ComputeTotals()
+	ownerTotals, _, _ := r.ComputeTotals()
 
-	cost, borrower, description := totalsInCents[Ana], Ana, "vegan"
+	cost, borrower, description := ownerTotals[Ana], Ana, "vegan"
 	if payer == Ana {
-		cost, borrower, description = totalsInCents[Matheus], Matheus, "non-vegan"
+		cost, borrower, description = ownerTotals[Matheus], Matheus, "non-vegan"
 	}
 	nonSharedExpense = &Expense{
 		Cost: cost,
@@ -150,7 +99,7 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 		Description: description,
 	}
 
-	costShared := totalsInCents[Shared]
+	costShared := ownerTotals[Shared]
 	halfCostSharedRoundedDown := costShared / 2
 	halfCostSharedRoundedUp := (costShared + 1) / 2
 	sharedExpense = &Expense{
@@ -173,21 +122,32 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 	return
 }
 
-// Len ...
 func (r Receipt) Len() int {
 	return len(r)
 }
 
-// NextItem ...
 func (r Receipt) NextItem(curItem int) int {
 	return (curItem + 1) % r.Len()
 }
 
-func ParsePriceToCents(tok string) PriceInCents {
+func (r Receipt) String() string {
+	items := make([]string, r.Len())
+	for i := range r {
+		items[i] = r[i].String()
+	}
+	return strings.Join(items, "\n")
+}
+
+func (r *ReceiptItem) String() string {
+	return fmt.Sprintf("%s (%s)", r.Name, r.Price)
+}
+
+func ParsePriceInCents(tok string) (PriceInCents, bool) {
 	m := regexPriceToken.FindStringSubmatch(tok)
-	eurosStr, centsStr := m[3], m[4]
-	eurosStr = regexPriceOAsZero.ReplaceAllString(eurosStr, "0")
-	centsStr = regexPriceOAsZero.ReplaceAllString(centsStr, "0")
+	if m == nil {
+		return 0, false
+	}
+	sign, eurosStr, centsStr := m[1], m[2], m[5]
 	euros, _ := strconv.ParseInt(eurosStr, 10, 64)
 	if len(eurosStr) == 0 {
 		euros = 0
@@ -196,13 +156,30 @@ func ParsePriceToCents(tok string) PriceInCents {
 	if len(centsStr) == 1 {
 		cents *= 10
 	}
-	return PriceInCents(cents + 100*euros)
+	price := PriceInCents(cents + 100*euros)
+	if sign == "-" {
+		price = -price
+	}
+	return price, true
 }
 
-// String ...
+func MustParsePriceInCents(tok string) PriceInCents {
+	price, ok := ParsePriceInCents(tok)
+	if !ok {
+		panic(fmt.Errorf("%q does not match pattern %q", tok, regexPriceToken.String()))
+	}
+	return price
+}
+
 func (p PriceInCents) String() string {
-	s := fmt.Sprintf("%d.", p/100)
-	mod := p % 100
+	i := int(p)
+	var s string
+	if i < 0 {
+		i = -i
+		s += "-"
+	}
+	s += fmt.Sprintf("%d.", i/100)
+	mod := i % 100
 	if mod < 10 {
 		s += "0"
 	}

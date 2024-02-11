@@ -2,11 +2,11 @@ package checkpoint
 
 import (
 	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 
 	"cloud.google.com/go/storage"
-	"gopkg.in/yaml.v3"
 )
 
 type (
@@ -40,7 +40,7 @@ func NewService(ctx context.Context, bucket string) (Service, error) {
 		return nil, fmt.Errorf("error creating cloud storage bucket client: %w", err)
 	}
 	return &service{
-		client: bktClient.Object("checkpoint.yml"),
+		client: bktClient.Object("checkpoint"),
 		close:  func() { client.Close() },
 	}, nil
 }
@@ -51,14 +51,12 @@ func (s *service) Close() {
 
 func (s *service) Store(ctx context.Context, v interface{}) error {
 	w := s.client.NewWriter(ctx)
-	defer w.Close()
-
-	encoder := yaml.NewEncoder(w)
-	encoder.SetIndent(2)
-	if err := encoder.Encode(v); err != nil {
+	if err := json.NewEncoder(w).Encode(v); err != nil {
 		return fmt.Errorf("error marshaling checkpoint: %w", err)
 	}
-
+	if err := w.Close(); err != nil {
+		return fmt.Errorf("error closing checkpoint writer: %w", err)
+	}
 	return nil
 }
 
@@ -71,11 +69,9 @@ func (s *service) Load(ctx context.Context, v interface{}) error {
 		return fmt.Errorf("error creating checkpoint reader: %w", err)
 	}
 	defer r.Close()
-
-	if err := yaml.NewDecoder(r).Decode(v); err != nil {
+	if err := json.NewDecoder(r).Decode(v); err != nil {
 		return fmt.Errorf("error unmarshaling checkpoint: %w", err)
 	}
-
 	return nil
 }
 
