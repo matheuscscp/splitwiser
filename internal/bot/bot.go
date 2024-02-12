@@ -47,8 +47,9 @@ const (
 	botLongPollingTimeout = 60 * time.Second
 	botTimeout            = 540*time.Second - botLongPollingTimeout - 5*time.Second
 
-	newPrice         = "p"
 	notReceiptItem   = "n"
+	resetReceipt     = "r"
+	newPrice         = "p"
 	delayDecision    = "d"
 	undoLastDecision = "u"
 )
@@ -97,6 +98,7 @@ Please choose the owner:
 %s - Set owned by Matheus
 %s - Set owned by both (shared)
 %s - Not a receipt item
+%s - Reset receipt
 %s <new_price> - Set new price
 %s - Delay item decision%s`,
 		item.Name,
@@ -105,6 +107,7 @@ Please choose the owner:
 		models.Matheus,
 		models.Shared,
 		notReceiptItem,
+		resetReceipt,
 		newPrice,
 		delayDecision,
 		undo,
@@ -117,8 +120,8 @@ func (b *botClient) sendOwnerChoice(lastModifiedReceiptItem int) {
 		undo = fmt.Sprintf(", %s", undoLastDecision)
 	}
 	b.send(
-		"Invalid choice. Choose one of {%s, %s, %s, %s, %s, %s%s}.",
-		models.Ana, models.Matheus, models.Shared, newPrice, notReceiptItem, delayDecision, undo,
+		"Invalid choice. Choose one of {%s, %s, %s, %s, %s, %s, %s%s}.",
+		models.Ana, models.Matheus, models.Shared, notReceiptItem, resetReceipt, newPrice, delayDecision, undo,
 	)
 }
 
@@ -132,7 +135,8 @@ Total with discounts: %v
 
 Please choose the payer:
 %s - Ana
-%s - Matheus`,
+%s - Matheus
+%s - Reset receipt`,
 		ownerTotals[models.Ana],
 		ownerTotals[models.Matheus],
 		ownerTotals[models.Shared],
@@ -140,6 +144,7 @@ Please choose the payer:
 		totalWithDiscounts,
 		models.Ana,
 		models.Matheus,
+		resetReceipt,
 	)
 }
 
@@ -390,6 +395,12 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 		}
 	}
 
+	softResetState := func() {
+		payer = ""
+		nextReceiptItem = 0
+		lastModifiedReceiptItem = -1
+	}
+
 	resetState := func() {
 		if err := checkpointService.Delete(ctx); err != nil {
 			bot.enqueue("I had an unexpected error deleting the checkpoint: %v", err)
@@ -399,11 +410,20 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 
 		botState = botStateIdle
 		receipt = nil
-		payer = ""
-		nextReceiptItem = 0
-		lastModifiedReceiptItem = -1
+		softResetState()
 
 		bot.sendMoreReceipts()
+	}
+
+	softResetOption := func() {
+		bot.send("Okay, let's go back to the beginning of this receipt:\n\n%s", receipt)
+		softResetState()
+		for _, item := range receipt {
+			item.Owner = ""
+		}
+		storeCheckpoint()
+		botState = botStateParsingReceiptInteractively
+		bot.sendReceiptItem(receipt[0], lastModifiedReceiptItem)
 	}
 
 	createExpense := func(expenseType string, expense *models.Expense, storeName string) {
@@ -469,6 +489,9 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 					nextReceiptItem = receipt.NextItem(nextReceiptItem)
 				}
 				storeCheckpoint()
+			case msg == resetReceipt:
+				softResetOption()
+				continue
 			case strings.HasPrefix(msg, newPrice+" "):
 				price, ok := models.ParsePriceInCents(msg[len(newPrice+" "):])
 				if !ok {
@@ -500,8 +523,10 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 			}
 		case botStateWaitingForPayer:
 			payer = models.ReceiptItemOwner(strings.TrimSpace(strings.ToLower(msg)))
-			if payer != models.Ana && payer != models.Matheus {
-				bot.send("Invalid choice. Choose one of {%s, %s}.", models.Ana, models.Matheus)
+			if payer != models.Ana && payer != models.Matheus && payer != resetReceipt {
+				bot.send("Invalid choice. Choose one of {%s, %s, %s}.", models.Ana, models.Matheus, resetReceipt)
+			} else if payer == resetReceipt {
+				softResetOption()
 			} else {
 				bot.send("Please type in the name of the store.")
 				botState = botStateWaitingForStore
