@@ -247,15 +247,13 @@ Content:
 
 %s
 
-Don't worry about the prices, you will can fix them later. And if OpenAI added some fake items you can also skip them later.
-
-Just check if OpenAI forgot some items that are clearly part of the receipt. Fees and discounts should be included.
+Check if OpenAI forgot any items that are part of the receipt. Fees and discounts should be included.
 
 To continue parsing this receipt, enter y/yes.
 
 To abort this receipt, enter n/no.
 
-To send a follow-up message to OpenAI asking for changes in this receipt, just type in the prompt in natural language.`,
+To send a follow-up message to OpenAI asking for changes in this receipt, just type in a prompt in natural language.`,
 			receipt,
 		)
 	}
