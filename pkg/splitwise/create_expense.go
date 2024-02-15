@@ -31,10 +31,6 @@ func NewClient(conf *config.Splitwise) Client {
 }
 
 func (c *client) CreateExpense(ctx context.Context, expense *models.Expense, storeName string) string {
-	if expense.Cost < 0 {
-		return "Skipping expense with negative cost."
-	}
-
 	if expense.Cost == 0 {
 		return "Skipping expense with cost zero."
 	}
