@@ -53,8 +53,7 @@ resource "google_cloudfunctions_function" "bot" {
     }
   }
   environment_variables = {
-    CONF_FILE    = local.config_file_path
-    LOGRUS_LEVEL = "debug"
+    CONF_FILE = local.config_file_path
   }
 }
 
