@@ -17,7 +17,7 @@ type (
 		} `yaml:"openai"`
 		Telegram struct {
 			Token  string `yaml:"token"`
-			ChatID string `yaml:"chatID"`
+			ChatID int64  `yaml:"chatID"`
 		} `yaml:"telegram"`
 		Splitwise        Splitwise `yaml:"splitwise"`
 		CheckpointBucket string    `yaml:"checkpointBucket"`

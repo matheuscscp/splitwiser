@@ -9,7 +9,6 @@ import (
 	"io"
 	"net/http"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -339,21 +338,11 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 	updateConf.Timeout = int(botLongPollingTimeout.Seconds())
 	updateChannel := telegramClient.GetUpdatesChan(updateConf)
 
-	chatIDs := strings.Split(conf.Telegram.ChatID, ",")
-	chatIDStr := chatIDs[0]
-	if user == models.Ana {
-		chatIDStr = chatIDs[len(chatIDs)-1]
-	}
-	chatID, err := strconv.ParseInt(chatIDStr, 10, 64)
-	if err != nil {
-		return fmt.Errorf("error parsing chat id for user '%s': %w", user, err)
-	}
-
 	bot := &botClient{
 		conf:           &conf,
 		openAI:         openAI,
 		telegramClient: telegramClient,
-		chatID:         chatID,
+		chatID:         conf.Telegram.ChatID,
 		updateChannel:  updateChannel,
 	}
 
