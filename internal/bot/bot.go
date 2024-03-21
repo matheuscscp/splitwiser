@@ -33,6 +33,9 @@ type (
 		closed         bool
 		msgQueue       []string
 		updateChannel  tgbotapi.UpdatesChannel
+
+		// state
+		chatMode bool
 	}
 
 	botState int
@@ -152,10 +155,10 @@ func (b *botClient) sendMoreReceipts() {
 	b.send("More receipts?")
 }
 
-func (bc *botClient) handlePhoto(ctx context.Context, update *tgbotapi.Update) models.Receipt {
+func (bc *botClient) handlePhoto(ctx context.Context, message *tgbotapi.Message) models.Receipt {
 	bc.send("Okay, I'm sending this image to OpenAI for processing...")
 	fd, err := bc.telegramClient.GetFile(tgbotapi.FileConfig{
-		FileID: update.Message.Photo[len(update.Message.Photo)-1].FileID,
+		FileID: message.Photo[len(message.Photo)-1].FileID,
 	})
 	if err != nil {
 		bc.send("I got this error trying to get a descriptor for the file you sent me:\n\n%v", err)
@@ -272,7 +275,14 @@ To send a follow-up message to OpenAI asking for changes in this receipt, just t
 		case <-ctx.Done():
 			return nil
 		case followup := <-bc.updateChannel:
-			if bc.shouldSkip(&followup) {
+			if followup.Message == nil {
+				continue
+			}
+			if bc.isToggleChat(followup.Message) {
+				bc.handleToggleChat()
+				continue
+			}
+			if bc.shouldSkip(followup.Message) {
 				continue
 			}
 			msg := followup.Message.Text
@@ -296,19 +306,32 @@ To send a follow-up message to OpenAI asking for changes in this receipt, just t
 	}
 }
 
-func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
+func (b *botClient) shouldSkip(message *tgbotapi.Message) bool {
 	return b.closed ||
-		update.Message == nil ||
-		update.Message.Chat.ID != b.chatID ||
-		userFromMessage(update.Message) != b.user ||
-		regexCya.MatchString(update.Message.Text)
+		b.chatMode ||
+		message.Chat.ID != b.chatID ||
+		userFromMessage(message) != b.user ||
+		regexCya.MatchString(message.Text)
 }
 
-func userFromMessage(msg *tgbotapi.Message) models.ReceiptItemOwner {
-	if msg.From.UserName == "matheuscscp" {
+func userFromMessage(message *tgbotapi.Message) models.ReceiptItemOwner {
+	if message.From.UserName == "matheuscscp" {
 		return models.Matheus
 	}
 	return models.Ana
+}
+
+func (b *botClient) isToggleChat(message *tgbotapi.Message) bool {
+	return message.Chat.ID == b.chatID && message.Text == "/togglechat"
+}
+
+func (b *botClient) handleToggleChat() {
+	b.chatMode = !b.chatMode
+	state := "enabled"
+	if !b.chatMode {
+		state = "disabled"
+	}
+	b.send("Chat mode is now %s.", state)
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
@@ -438,34 +461,43 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 	}
 
 	for update := range updateChannel {
-		if bot.shouldSkip(&update) {
+		if update.Message == nil {
 			continue
 		}
 
-		msg := update.Message.Text
-		logrus.Infof("[%s] %s", update.Message.From.UserName, msg)
-		logrus.WithField("msg", update.Message).Debug("msg")
+		message := update.Message
+		if bot.isToggleChat(message) {
+			bot.handleToggleChat()
+			continue
+		}
+
+		if bot.shouldSkip(message) {
+			continue
+		}
+
+		logrus.Infof("[%s] %s", message.From.UserName, message.Text)
+		logrus.WithField("msg", message).Debug("msg")
 
 		// handle commands
-		if botState != botStateIdle && msg == "/abort" {
+		if botState != botStateIdle && message.Text == "/abort" {
 			resetState()
 			continue
 		}
-		if msg == "/uptime" {
+		if message.Text == "/uptime" {
 			bot.send("I'm up for %s.", time.Since(startTime))
 			continue
 		}
-		if msg == "/finish" {
+		if message.Text == "/finish" {
 			cancel()
 			continue
 		}
 
 		switch botState {
 		case botStateIdle:
-			if len(update.Message.Photo) > 0 {
-				receipt = bot.handlePhoto(ctx, &update)
+			if len(message.Photo) > 0 {
+				receipt = bot.handlePhoto(ctx, message)
 			} else {
-				receipt = models.ParseReceipt(msg)
+				receipt = models.ParseReceipt(message.Text)
 				if receipt.Len() == 0 {
 					bot.send("I can't understand that. Let's try again.")
 				} else {
@@ -478,33 +510,33 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				botState = botStateParsingReceiptInteractively
 			}
 		case botStateParsingReceiptInteractively:
-			msg = strings.TrimSpace(strings.ToLower(msg))
+			message.Text = strings.TrimSpace(strings.ToLower(message.Text))
 			switch {
-			case msg == string(models.Ana) || msg == string(models.Matheus) || msg == string(models.Shared) || msg == notReceiptItem:
-				receipt[nextReceiptItem].Owner = models.ReceiptItemOwner(msg)
+			case message.Text == string(models.Ana) || message.Text == string(models.Matheus) || message.Text == string(models.Shared) || message.Text == notReceiptItem:
+				receipt[nextReceiptItem].Owner = models.ReceiptItemOwner(message.Text)
 				lastModifiedReceiptItem = nextReceiptItem
 				nextReceiptItem = receipt.NextItem(nextReceiptItem)
 				for receipt[nextReceiptItem].Owner != "" && nextReceiptItem != lastModifiedReceiptItem {
 					nextReceiptItem = receipt.NextItem(nextReceiptItem)
 				}
 				storeCheckpoint()
-			case msg == resetReceipt:
+			case message.Text == resetReceipt:
 				softResetOption()
 				continue
-			case strings.HasPrefix(msg, newPrice+" "):
-				price, ok := models.ParsePriceInCents(msg[len(newPrice+" "):])
+			case strings.HasPrefix(message.Text, newPrice+" "):
+				price, ok := models.ParsePriceInCents(message.Text[len(newPrice+" "):])
 				if !ok {
 					bot.send("I can't understand that price, please try again.")
 					continue
 				}
 				receipt[nextReceiptItem].Price = price
 				storeCheckpoint()
-			case msg == delayDecision:
+			case message.Text == delayDecision:
 				nextReceiptItem = receipt.NextItem(nextReceiptItem)
 				for receipt[nextReceiptItem].Owner != "" {
 					nextReceiptItem = receipt.NextItem(nextReceiptItem)
 				}
-			case msg == undoLastDecision && lastModifiedReceiptItem >= 0:
+			case message.Text == undoLastDecision && lastModifiedReceiptItem >= 0:
 				nextReceiptItem = lastModifiedReceiptItem
 				lastModifiedReceiptItem = -1
 				receipt[nextReceiptItem].Owner = ""
@@ -521,7 +553,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				botState = botStateWaitingForPayer
 			}
 		case botStateWaitingForPayer:
-			payer = models.ReceiptItemOwner(strings.TrimSpace(strings.ToLower(msg)))
+			payer = models.ReceiptItemOwner(strings.TrimSpace(strings.ToLower(message.Text)))
 			if payer != models.Ana && payer != models.Matheus && payer != resetReceipt {
 				bot.send("Invalid choice. Choose one of {%s, %s, %s}.", models.Ana, models.Matheus, resetReceipt)
 			} else if payer == resetReceipt {
@@ -531,7 +563,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 				botState = botStateWaitingForStore
 			}
 		case botStateWaitingForStore:
-			storeName := msg
+			storeName := message.Text
 			if len(storeName) == 0 {
 				bot.send("Store name cannot be empty.")
 			} else {
