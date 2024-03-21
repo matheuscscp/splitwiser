@@ -297,10 +297,16 @@ To send a follow-up message to OpenAI asking for changes in this receipt, just t
 }
 
 func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
-	return b.closed ||
+	if b.closed ||
 		update.Message == nil ||
-		update.Message.Chat.ID != b.chatID ||
-		regexCya.MatchString(update.Message.Text)
+		regexCya.MatchString(update.Message.Text) {
+		return true
+	}
+	if chatID := update.Message.Chat.ID; chatID != b.chatID {
+		logrus.WithField("chatID", chatID).Debug("invalid chat id")
+		return true
+	}
+	return false
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
