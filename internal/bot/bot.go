@@ -29,6 +29,7 @@ type (
 		openAI         *openai.Client
 		telegramClient *tgbotapi.BotAPI
 		chatID         int64
+		user           models.ReceiptItemOwner
 		closed         bool
 		msgQueue       []string
 		updateChannel  tgbotapi.UpdatesChannel
@@ -296,16 +297,18 @@ To send a follow-up message to OpenAI asking for changes in this receipt, just t
 }
 
 func (b *botClient) shouldSkip(update *tgbotapi.Update) bool {
-	if b.closed ||
+	return b.closed ||
 		update.Message == nil ||
-		regexCya.MatchString(update.Message.Text) {
-		return true
+		update.Message.Chat.ID != b.chatID ||
+		userFromMessage(update.Message) != b.user ||
+		regexCya.MatchString(update.Message.Text)
+}
+
+func userFromMessage(msg *tgbotapi.Message) models.ReceiptItemOwner {
+	if msg.From.UserName == "matheuscscp" {
+		return models.Matheus
 	}
-	if chatID := update.Message.Chat.ID; chatID != b.chatID {
-		logrus.WithField("chatID", chatID).Debug("invalid chat id")
-		return true
-	}
-	return false
+	return models.Ana
 }
 
 // Run starts the bot and returns when the bot has finished processing all receipts.
@@ -343,6 +346,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 		openAI:         openAI,
 		telegramClient: telegramClient,
 		chatID:         conf.Telegram.ChatID,
+		user:           user,
 		updateChannel:  updateChannel,
 	}
 
