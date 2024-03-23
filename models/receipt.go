@@ -186,3 +186,16 @@ func (p PriceInCents) String() string {
 	s += fmt.Sprintf("%d", mod)
 	return s
 }
+
+func (o ReceiptItemOwner) Pretty() string {
+	switch o {
+	case Ana:
+		return "Ana"
+	case Matheus:
+		return "Matheus"
+	case Shared:
+		return "Shared"
+	default:
+		return string(o)
+	}
+}

@@ -14,7 +14,7 @@ import (
 	"github.com/matheuscscp/splitwiser/services/events"
 	"github.com/matheuscscp/splitwiser/services/secrets"
 
-	jwt "github.com/golang-jwt/jwt/v4"
+	jwt "github.com/golang-jwt/jwt/v5"
 	"github.com/sirupsen/logrus"
 )
 
@@ -33,9 +33,10 @@ const (
 )
 
 var (
-	errWrongPassword = errors.New("wrong password")
-	errInvalidRealm  = errors.New("invalid authentication realm")
-	errInvalidToken  = errors.New("invalid token")
+	errInvalidUser     = errors.New("invalid user")
+	errInvalidPassword = errors.New("invalid password")
+	errInvalidRealm    = errors.New("invalid authentication realm")
+	errInvalidToken    = errors.New("invalid token")
 
 	jwtSigningMethod = jwt.SigningMethodHS256
 )
@@ -91,29 +92,35 @@ func (c *controller) handleRequest() {
 	}
 	// post
 
+	var user models.ReceiptItemOwner
+	var err error
 	if !c.hasAuthentication() {
-		if err := c.checkPassword(); err != nil {
-			if errors.Is(err, errWrongPassword) {
-				logrus.Warn("wrong password")
+		if user, err = c.checkUserAndPassword(); err != nil {
+			switch {
+			case errors.Is(err, errInvalidUser):
+				logrus.Warn("invalid user")
+				c.replyStatusCode(http.StatusUnprocessableEntity)
+			case errors.Is(err, errInvalidPassword):
+				logrus.Warn("invalid password")
 				c.replyStatusCode(http.StatusUnauthorized)
-			} else {
+			default:
 				c.replyError(http.StatusBadRequest, err)
 			}
 			return
 		}
-	} else if err := c.checkAuthentication(); err != nil {
+	} else if user, err = c.checkAuthentication(); err != nil {
 		logrus.Warnf("invalid authentication: %v", err)
 		c.replyStatusCode(http.StatusUnauthorized)
 		return
 	}
 
-	if err := c.startBot(); err != nil {
+	if err := c.startBot(user); err != nil {
 		c.replyError(http.StatusInternalServerError, err)
 		return
 	}
 
 	if !c.hasAuthentication() {
-		c.sendNewJWT()
+		c.sendNewJWT(user)
 	} else {
 		c.replyStatusCode(http.StatusCreated)
 	}
@@ -150,11 +157,12 @@ func (c *controller) sendSinglePageApp() {
 				} else if (resp.status === 201) {
 					success()
 				} else {
-					showServerError(resp)
+					showError(await resp.text())
 				}
 			}
 
 			async function submit() {
+				const user = document.getElementById('user').value
 				const password = document.getElementById('password').value
 				console.log('sending start command...')
 				selectDiv('loading')
@@ -163,32 +171,32 @@ func (c *controller) sendSinglePageApp() {
 					headers: {
 						'Content-Type': 'application/json',
 					},
-					body: JSON.stringify({ password }),
+					body: JSON.stringify({ user, password }),
 				})
-				if (resp.status === 401) {
-					console.log('invalid password')
-					showDiv('invalid-password')
-					selectDiv('form')
-				} else if (resp.status === 201) {
+				const { status } = resp
+				if (status >= 400 && status < 500) {
+					const err = status === 422 ? 'Invalid user.' : 'Invalid password.'
+					showError(err)
+				} else if (status === 201) {
 					const { auth_token } = await resp.json()
 					localStorage.setItem('auth_token', auth_token)
 					success()
 				} else {
-					showServerError(resp)
+					showError(await resp.text())
 				}
 			}
 
 			function success() {
 				console.log('success')
-				hideDiv('server-error')
+				hideDiv('error-message')
 				selectDiv('success')
 			}
 
-			function showServerError(resp) {
-				const err = JSON.stringify(resp, null, 2)
-				console.log('unexpected server error:', err)
-				document.getElementById('server-error').text = err
-				showDiv('server-error')
+			function showError(err) {
+				console.log(err)
+				document.getElementById('error-message').text = err
+				showDiv('error-message')
+				selectDiv('form')
 			}
 
 			function showDiv(divID) {
@@ -208,16 +216,18 @@ func (c *controller) sendSinglePageApp() {
 		</script>
 	</head>
 	<body onload="startApp()">
-		<div id="server-error" hidden></div>
 		<div id="loading">
 			Loading...
 		</div>
 		<div id="form" hidden>
-			<div id="invalid-password" hidden>
-				Invalid password.
-			</div>
+			<div id="error-message" hidden></div>
+
+			<label for="user">User ('a' or 'm'):</label><br>
+			<input type="text" id="user" name="user"><br>
+
 			<label for="password">Password:</label><br>
 			<input type="password" id="password" name="password"><br>
+
 			<button onclick="submit()">Submit</button>
 		</div>
 		<div id="success" hidden>
@@ -228,8 +238,9 @@ func (c *controller) sendSinglePageApp() {
 `)
 }
 
-func (c *controller) sendNewJWT() {
+func (c *controller) sendNewJWT(user models.ReceiptItemOwner) {
 	token := jwt.NewWithClaims(jwtSigningMethod, jwt.MapClaims{
+		"sub": string(user),
 		"exp": time.Now().Add(30 * 24 * time.Hour).Unix(),
 	})
 	tokenString, err := token.SignedString(c.conf.JWTSecret)
@@ -244,50 +255,55 @@ func (c *controller) sendNewJWT() {
 	c.writeHTTP(`{"auth_token":%s}`, tokenString)
 }
 
-func (c *controller) checkAuthentication() error {
+func (c *controller) checkAuthentication() (models.ReceiptItemOwner, error) {
 	// fetch token from request
 	const realm = "Bearer "
 	authn := c.r.Header.Get(httpHeaderAuthorization)
 	if !strings.HasPrefix(authn, realm) {
-		return errInvalidRealm
+		return "", errInvalidRealm
 	}
 	tokenString := authn[len(realm):]
 
 	// validate token
 	token, err := jwt.Parse(tokenString, func(token *jwt.Token) (interface{}, error) {
-		if method, ok := token.Method.(*jwt.SigningMethodHMAC); !ok || method != jwtSigningMethod {
-			return nil, fmt.Errorf("invalid signing method: %v", token.Header["alg"])
-		}
 		return c.conf.JWTSecret, nil
-	})
+	}, jwt.WithValidMethods([]string{jwtSigningMethod.Name}))
 	if err != nil {
-		return fmt.Errorf("error parsing jwt token: %w", err)
+		return "", fmt.Errorf("error parsing jwt token: %w", err)
 	}
 	if !token.Valid {
-		return errInvalidToken
+		return "", errInvalidToken
 	}
-	return nil
+	sub, err := token.Claims.GetSubject()
+	if err != nil {
+		return "", fmt.Errorf("error getting subject from token: %w", err)
+	}
+	user := models.ReceiptItemOwner(sub)
+	if user != models.Ana && user != models.Matheus {
+		return "", errInvalidUser
+	}
+	return user, nil
 }
 
-func (c *controller) checkPassword() error {
+func (c *controller) checkUserAndPassword() (models.ReceiptItemOwner, error) {
 	var payload struct {
+		User     string `json:"user"`
 		Password string `json:"password"`
 	}
 	if err := json.NewDecoder(c.r.Body).Decode(&payload); err != nil {
-		return fmt.Errorf("error unmarshaling payload: %w", err)
+		return "", fmt.Errorf("error unmarshaling payload: %w", err)
+	}
+	user := models.ReceiptItemOwner(strings.TrimSpace(strings.ToLower(payload.User)))
+	if user != models.Ana && user != models.Matheus {
+		return "", errInvalidUser
 	}
 	if payload.Password != c.conf.Password {
-		return errWrongPassword
+		return "", errInvalidPassword
 	}
-	return nil
+	return user, nil
 }
 
-func (c *controller) startBot() error {
-	var user models.ReceiptItemOwner
-	user = models.ReceiptItemOwner(strings.TrimSpace(c.r.URL.Query().Get("u")))
-	if user == "" || (user != models.Matheus && user != models.Ana) {
-		user = models.Matheus
-	}
+func (c *controller) startBot(user models.ReceiptItemOwner) error {
 	msg := fmt.Sprintf("start-%s", user)
 	serverID, err := c.eventsService.Publish(c.r.Context(), c.conf.TopicID, []byte(msg))
 	if err != nil {
