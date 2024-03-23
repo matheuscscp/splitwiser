@@ -390,7 +390,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 	lastModifiedReceiptItem := -1
 
 	// load checkpoint
-	bot.enqueue("Hi.")
+	bot.enqueue("Hi, %s.", user.Pretty())
 	if err := checkpointService.Load(ctx, &receipt); err != nil {
 		if !errors.Is(err, checkpoint.ErrCheckpointNotExist) {
 			bot.enqueue("I had an unexpected error loading the checkpoint: %v", err)

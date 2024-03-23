@@ -7,7 +7,7 @@ require (
 	cloud.google.com/go/secretmanager v1.5.0
 	cloud.google.com/go/storage v1.22.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
-	github.com/golang-jwt/jwt/v4 v4.4.2
+	github.com/golang-jwt/jwt/v5 v5.2.1
 	github.com/sashabaranov/go-openai v1.17.10
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
