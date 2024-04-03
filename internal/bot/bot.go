@@ -156,7 +156,7 @@ func (b *botClient) sendMoreReceipts() {
 }
 
 func (bc *botClient) handlePhoto(ctx context.Context, message *tgbotapi.Message) models.Receipt {
-	bc.send("Okay, I'm sending this image to OpenAI for processing...")
+	bc.send("M'kay, I'm sending this image to OpenAI for processing...")
 	fd, err := bc.telegramClient.GetFile(tgbotapi.FileConfig{
 		FileID: message.Photo[len(message.Photo)-1].FileID,
 	})
@@ -293,7 +293,7 @@ To send a follow-up message to OpenAI asking for changes in this receipt, just t
 				bc.sendMoreReceipts()
 				return nil
 			}
-			bc.send("Okay, I'm forwarding this follow-up prompt to OpenAI...")
+			bc.send("M'kay, I'm forwarding this follow-up prompt to OpenAI...")
 			messages = append(messages, lastMessageFromOpenAI, openai.ChatCompletionMessage{
 				Role:    openai.ChatMessageRoleUser,
 				Content: strings.TrimSpace(msg),
@@ -438,7 +438,7 @@ func Run(ctx context.Context, user models.ReceiptItemOwner) error {
 	}
 
 	softResetOption := func() {
-		bot.send("Okay, let's go back to the beginning of this receipt:\n\n%s", receipt)
+		bot.send("M'kay, let's go back to the beginning of this receipt:\n\n%s", receipt)
 		softResetState()
 		for _, item := range receipt {
 			item.Owner = ""
