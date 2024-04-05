@@ -57,6 +57,13 @@ func ParseReceipt(receiptText string) (receipt Receipt) {
 	return
 }
 
+func (r Receipt) AbsoluteTotal() (total PriceInCents) {
+	for _, item := range r {
+		total += item.Price
+	}
+	return
+}
+
 func (r Receipt) ComputeTotals() (ownerTotals map[ReceiptItemOwner]PriceInCents,
 	total PriceInCents, totalWithDiscounts PriceInCents) {
 	ownerTotals = make(map[ReceiptItemOwner]PriceInCents)
@@ -135,6 +142,8 @@ func (r Receipt) String() string {
 	for i := range r {
 		items[i] = r[i].String()
 	}
+	items = append(items, "")
+	items = append(items, fmt.Sprintf("Total: %s", r.AbsoluteTotal()))
 	return strings.Join(items, "\n")
 }
 
