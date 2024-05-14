@@ -229,7 +229,7 @@ Finally, here goes the example JSON format:
 		for {
 			resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 				MaxTokens: 4096,
-				Model:     openai.GPT4VisionPreview,
+				Model:     openai.GPT4o,
 				Messages:  messages,
 			})
 			if err != nil {
