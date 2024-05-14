@@ -8,7 +8,7 @@ require (
 	cloud.google.com/go/storage v1.22.1
 	github.com/go-telegram-bot-api/telegram-bot-api/v5 v5.5.1
 	github.com/golang-jwt/jwt/v5 v5.2.1
-	github.com/sashabaranov/go-openai v1.17.10
+	github.com/sashabaranov/go-openai v1.24.0
 	github.com/sirupsen/logrus v1.8.1
 	github.com/stretchr/testify v1.7.0
 	google.golang.org/genproto v0.0.0-20220617124728-180714bec0ad
