@@ -13,6 +13,7 @@ import (
 	"time"
 
 	"github.com/matheuscscp/splitwiser/config"
+	openaipkg "github.com/matheuscscp/splitwiser/internal/openai"
 	_ "github.com/matheuscscp/splitwiser/logging"
 	"github.com/matheuscscp/splitwiser/models"
 	"github.com/matheuscscp/splitwiser/pkg/splitwise"
@@ -237,14 +238,19 @@ Finally, here goes the example JSON format:
 				return err
 			}
 			lastMessageFromOpenAI = resp.Choices[0].Message
-			if err := json.Unmarshal([]byte(lastMessageFromOpenAI.Content), &receipt); err != nil {
+			cleanedResp := openaipkg.CleanOpenAIJSONResponse(lastMessageFromOpenAI.Content)
+			if err := json.Unmarshal([]byte(cleanedResp), &receipt); err != nil {
 				bc.send(`OpenAI replied an invalid JSON. This is a dumb error, I'm just gonna retry for you.
 
 Error: %v
 
 Content:
 
-%s`, err, lastMessageFromOpenAI.Content)
+%s
+
+Cleaned Content:
+
+%s`, err, lastMessageFromOpenAI.Content, cleanedResp)
 				continue
 			}
 			return nil
