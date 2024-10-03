@@ -255,7 +255,9 @@ Cleaned Content:
 			}
 			return nil
 		}
-		return errors.New("OpenAI replied an invalid JSON 3 times in a row, I'm giving up.")
+		const maxRetriesErr = "OpenAI replied an invalid JSON 3 times in a row, I'm giving up."
+		bc.send(maxRetriesErr)
+		return errors.New(maxRetriesErr)
 	}
 	askIfResultIsEnough := func() {
 		bc.send(`Here are the items and prices from OpenAI:
