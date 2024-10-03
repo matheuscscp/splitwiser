@@ -13,54 +13,40 @@ func TestCleanOpenAIJSONResponse(t *testing.T) {
 		expected string
 	}{
 		{
-			name:     "simple",
-			content:  "```json\n{\"text\":\"hello\"}\n```",
-			expected: "{\"text\":\"hello\"}",
+			name:     "empty",
+			content:  "",
+			expected: "",
 		},
 		{
-			name:     "simple_no_json",
-			content:  "```{\"text\":\"hello\"}\n```",
-			expected: "{\"text\":\"hello\"}",
+			name:     "no array",
+			content:  "{}",
+			expected: "{}",
 		},
 		{
-			name:     "simple_no_backticks",
-			content:  "{\"text\":\"hello\"}",
-			expected: "{\"text\":\"hello\"}",
+			name:     "array",
+			content:  "[{\"key\": \"value\"}]",
+			expected: "[{\"key\": \"value\"}]",
 		},
 		{
-			name:     "simple_no_backticks_no_json",
-			content:  "{\"text\":\"hello\"}",
-			expected: "{\"text\":\"hello\"}",
+			name:     "array with extra",
+			content:  "extra[{\"key\": \"value\"}]extra",
+			expected: "[{\"key\": \"value\"}]",
 		},
 		{
-			name:     "complex",
-			content:  "```json\n{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}\n```",
-			expected: "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
+			name:     "array with extra and nested",
+			content:  "extra[{\"key\": [{\"key\": \"value\"}]}]extra",
+			expected: "[{\"key\": [{\"key\": \"value\"}]}]",
 		},
 		{
-			name:     "complex_no_json",
-			content:  "```{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}\n```",
-			expected: "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
-		},
-		{
-			name:     "complex_no_backticks",
-			content:  "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
-			expected: "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
-		},
-		{
-			name:     "complex_no_backticks_no_json",
-			content:  "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
-			expected: "{\"text\":\"hello\",\"choices\":[\"yes\",\"no\"]}",
-		},
-		{
-			name:     "simple_with_newlines",
-			content:  "\n```json\n{\n\"text\":\"hello\"\n}\n```",
-			expected: "{\n\"text\":\"hello\"\n}",
+			name:     "array with extra and nested and extra",
+			content:  "extra[{\"key\": [{\"key\": \"value\"}]}]extra",
+			expected: "[{\"key\": [{\"key\": \"value\"}]}]",
 		},
 	} {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := openaipkg.CleanOpenAIJSONResponse(tt.content); got != tt.expected {
-				t.Errorf("CleanOpenAIJSONResponse() = %v, want %v", got, tt.expected)
+			got := openaipkg.CleanOpenAIJSONResponse(tt.content)
+			if got != tt.expected {
+				t.Errorf("expected %q, got %q", tt.expected, got)
 			}
 		})
 	}
