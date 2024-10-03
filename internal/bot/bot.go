@@ -226,7 +226,7 @@ Finally, here goes the example JSON format:
 	var lastMessageFromOpenAI openai.ChatCompletionMessage
 	var receipt models.Receipt
 	parsePhoto := func() error {
-		for {
+		for i := 0; i < 3; i++ {
 			resp, err := bc.openAI.CreateChatCompletion(ctx, openai.ChatCompletionRequest{
 				MaxTokens: 4096,
 				Model:     openai.GPT4o,
@@ -249,6 +249,7 @@ Content:
 			}
 			return nil
 		}
+		return errors.New("OpenAI replied an invalid JSON 3 times in a row, I'm giving up.")
 	}
 	askIfResultIsEnough := func() {
 		bc.send(`Here are the items and prices from OpenAI:
