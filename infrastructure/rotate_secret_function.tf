@@ -23,7 +23,7 @@ resource "google_cloudfunctions_function" "rotate-secret" {
   name                  = local.rotate_secret_function_name
   entry_point           = local.rotate_secret_function_name
   description           = "Background function to rotate secrets in the project"
-  runtime               = "go121"
+  runtime               = "go122"
   docker_registry       = "ARTIFACT_REGISTRY"
   source_archive_bucket = google_storage_bucket.source-code.name
   source_archive_object = google_storage_bucket_object.source-code.name
