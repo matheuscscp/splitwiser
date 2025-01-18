@@ -84,6 +84,21 @@ func (r Receipt) ComputeExpenses(payer ReceiptItemOwner) (
 	sharedExpense *Expense,
 ) {
 	ownerTotals, _, _ := r.ComputeTotals()
+	if sharedTotal := ownerTotals[Shared]; sharedTotal < 0 {
+		min, max := Ana, Matheus
+		if ownerTotals[Matheus] < ownerTotals[Ana] {
+			min, max = Matheus, Ana
+		}
+		if halfSharedTotal := sharedTotal / 2; ownerTotals[min]+halfSharedTotal >= 0 {
+			ownerTotals[min] += halfSharedTotal
+			ownerTotals[max] += sharedTotal - halfSharedTotal
+		} else {
+			minTotal := ownerTotals[min]
+			ownerTotals[min] = 0
+			ownerTotals[max] += sharedTotal + minTotal
+		}
+		ownerTotals[Shared] = 0
+	}
 
 	cost, borrower, description := ownerTotals[Ana], Ana, "vegan"
 	if payer == Ana {
