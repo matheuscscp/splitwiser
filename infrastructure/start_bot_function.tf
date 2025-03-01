@@ -42,6 +42,7 @@ resource "google_cloudfunctions_function" "start-bot" {
   source_archive_bucket        = google_storage_bucket.source-code.name
   source_archive_object        = google_storage_bucket_object.source-code.name
   service_account_email        = google_service_account.start-bot.email
+  max_instances                = 1
   secret_volumes {
     mount_path = local.config_path
     secret     = google_secret_manager_secret.start-bot-config.secret_id

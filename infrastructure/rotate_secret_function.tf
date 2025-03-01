@@ -28,6 +28,7 @@ resource "google_cloudfunctions_function" "rotate-secret" {
   source_archive_bucket = google_storage_bucket.source-code.name
   source_archive_object = google_storage_bucket_object.source-code.name
   service_account_email = google_service_account.rotate-secret.email
+  max_instances         = 1
   event_trigger {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.rotate-secret.id

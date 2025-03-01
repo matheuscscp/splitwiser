@@ -40,6 +40,7 @@ resource "google_cloudfunctions_function" "bot" {
   source_archive_bucket = google_storage_bucket.source-code.name
   source_archive_object = google_storage_bucket_object.source-code.name
   service_account_email = google_service_account.bot.email
+  max_instances         = 1
   event_trigger {
     event_type = "google.pubsub.topic.publish"
     resource   = google_pubsub_topic.start-bot.id
